@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#15172A">
+<title>多數派 Green Team Wins｜家庭連線版</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<script src="https://cdn.tailwindcss.com/3.4.5"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: { g: '#36E07A', gd: '#1E9A52', o: '#FF8A2A', od: '#B85A10', ink: '#0E1020', bg: '#15172A', card: '#22253F', card2: '#2C3050', line: '#3A3F66', soft: '#B9BCD6', mute: '#9A9DBA', yel: '#FFE066' },
+  fontFamily: { sans: ['"Noto Sans TC"', 'system-ui', 'sans-serif'], hand: ['"LXGW WenKai TC"', '"Noto Sans TC"', 'cursive'], disp: ['"Bagel Fat One"', '"Noto Sans TC"', 'sans-serif'] }
+} } };
+</script>
+<script src="https://unpkg.com/vue@3.4.38/dist/vue.global.prod.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  [v-cloak]{display:none}
+  html,body{background:#15172A}
+  body{background-image:radial-gradient(rgba(255,255,255,.06) 1.5px, transparent 1.5px);background-size:22px 22px;-webkit-tap-highlight-color:transparent}
+  button{transition:transform .15s ease, filter .15s ease}
+  button:active:not(:disabled){transform:translateY(1px) scale(.97)}
+  button:disabled{opacity:.45}
+  :focus-visible{outline:3px solid #FFE066;outline-offset:2px}
+  .board{background:#FDFDFB;color:#1B1F3B;border-radius:22px;box-shadow:0 0 0 5px #2C3050, 0 14px 0 -2px #0B0C18}
+  @keyframes popIn{0%{transform:scale(.6) rotate(-4deg);opacity:0}70%{transform:scale(1.05) rotate(1deg);opacity:1}100%{transform:none}}
+  @keyframes deal{0%{transform:translateY(-30px) rotateX(60deg);opacity:0}100%{transform:none;opacity:1}}
+  @keyframes pulse2{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+  @keyframes fall{0%{transform:translateY(-10vh) rotate(0)}100%{transform:translateY(110vh) rotate(720deg)}}
+  @keyframes rise{0%{transform:translateY(14px);opacity:0}100%{transform:none;opacity:1}}
+  @keyframes wobble{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+  .pop{animation:popIn .5s cubic-bezier(.2,.9,.3,1.3) both}
+  .deal{animation:deal .55s cubic-bezier(.2,.8,.2,1) both}
+  .pulse2{animation:pulse2 1s ease-in-out infinite}
+  .rise{animation:rise .4s ease-out both}
+  .wobble{animation:wobble 2.4s ease-in-out infinite}
+  .pcard{perspective:900px}
+  .pcard .inner{position:relative;height:120px;transition:transform .6s cubic-bezier(.2,.8,.2,1);transform-style:preserve-3d}
+  .pcard.flipped .inner{transform:rotateY(180deg)}
+  .pcard .face{position:absolute;inset:0;border-radius:16px;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;text-align:center}
+  .pcard .front{transform:rotateY(180deg);background:#FDFDFB;color:#1B1F3B;box-shadow:inset 0 0 0 3px #D9DCE8}
+  .bar{transition:height .9s cubic-bezier(.2,.8,.2,1)}
+  .confetti{position:fixed;top:0;height:14px;border-radius:2px;pointer-events:none;z-index:60;animation:fall linear both}
+</style>
+</head>
+<body class="text-[#F3F4FA] font-sans min-h-screen">
+
+<!-- =========================================================
+     ① 把 Firebase 設定貼在這裡（教學請看頁面上的「設定說明」或回覆中的步驟）
+     ========================================================= -->
+<script>
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "YOUR_APP_ID"
+};
+</script>
+
+<div id="app" v-cloak class="min-h-screen flex flex-col">
+
+  <!-- 頂部列 -->
+  <header class="sticky top-0 z-40 bg-bg/95 backdrop-blur border-b-2 border-card px-4 py-3 flex items-center justify-between gap-3">
+    <div class="flex items-baseline gap-2 min-w-0">
+      <span class="font-black text-xl tracking-widest">多數派</span>
+      <span class="font-disp text-xs hidden sm:inline"><span class="text-g">GREEN</span> <span class="text-o">TEAM WINS</span></span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span v-if="view==='room' && me" class="px-3 py-1.5 rounded-full text-ink text-sm font-black" :class="me.team==='green' ? 'bg-g' : 'bg-o'">{{ me.team==='green' ? '綠隊' : '橘隊' }} · {{ me.score || 0 }} 分</span>
+      <button @click="sound=!sound" :aria-label="sound ? '關閉音效' : '開啟音效'" class="h-11 w-11 rounded-full border-2 border-line flex items-center justify-center">
+        <svg v-if="sound" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
+        <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
+      </button>
+      <button v-if="view==='room'" @click="leave" class="h-11 px-3 rounded-full border-2 border-line text-sm font-bold">離開</button>
+    </div>
+  </header>
+
+  <!-- 提示訊息 -->
+  <transition name="fade">
+    <div v-if="toast" role="status" class="fixed left-1/2 -translate-x-1/2 top-20 z-50 max-w-[90vw] px-4 py-3 rounded-2xl bg-o text-ink font-bold text-center shadow-lg rise">{{ toast }}</div>
+  </transition>
+
+  <!-- ================= 尚未設定 Firebase ================= -->
+  <main v-if="view==='setup'" class="max-w-2xl w-full mx-auto px-4 py-8 flex flex-col gap-5">
+    <h1 class="text-3xl font-black">還差一步：連上 Firebase</h1>
+    <p class="text-soft leading-relaxed">這個檔案還沒填入 Firebase 設定，所以無法建立連線房間。照下面做一次，大約 10 分鐘，之後永久免費使用（家庭聚會的用量遠低於免費額度）。</p>
+    <ol class="flex flex-col gap-3 list-none">
+      <li v-for="(s,i) in setupSteps" :key="i" class="p-4 rounded-2xl bg-card flex gap-3">
+        <span class="font-disp text-2xl text-g w-8 shrink-0">{{ i+1 }}</span>
+        <span class="leading-relaxed" v-html="s"></span>
+      </li>
+    </ol>
+    <div class="p-4 rounded-2xl bg-card flex flex-col gap-2">
+      <strong>步驟 3 要貼上的「規則」</strong>
+      <pre class="text-sm bg-bg rounded-xl p-3 overflow-x-auto text-g">{{ rulesText }}</pre>
+      <button @click="copy(rulesText)" class="self-start h-11 px-4 rounded-xl bg-g text-ink font-black">複製規則</button>
+    </div>
+  </main>
+
+  <!-- ================= 主頁 ================= -->
+  <main v-if="view==='home'" class="max-w-xl w-full mx-auto px-4 py-8 flex flex-col gap-7">
+    <section class="flex flex-col items-center text-center gap-3">
+      <div class="relative w-52 h-40 my-2">
+        <div class="wobble absolute left-2 top-4 w-28 h-36 rounded-2xl bg-o text-ink flex flex-col items-center justify-center shadow-[0_8px_0_#B85A10]"><span class="font-disp text-5xl">?</span><span class="font-black text-sm">橘隊</span></div>
+        <div class="board pop absolute right-0 top-0 w-28 h-36 flex flex-col items-center justify-center gap-1 rotate-6"><span class="text-xs text-[#6A6F93] font-bold">我的答案</span><span class="font-hand text-3xl font-bold">微糖</span><span class="px-2 py-0.5 rounded-full bg-g text-ink text-xs font-black">+1</span></div>
+      </div>
+      <h1 class="text-6xl font-black tracking-widest">多數派</h1>
+      <p class="font-disp text-2xl"><span class="text-g">GREEN TEAM</span> <span class="text-o">WINS!</span></p>
+      <p class="text-soft leading-relaxed">每個人用自己的手機加入同一個房間。<br>不是比誰答得對，是比誰最懂這一家人。</p>
+    </section>
+
+    <section class="p-5 rounded-3xl bg-card flex flex-col gap-4">
+      <label for="nm" class="font-bold text-soft">你的暱稱</label>
+      <input id="nm" v-model="name" maxlength="10" placeholder="例如：阿嬤、小舅、表妹" class="h-14 px-4 rounded-2xl bg-bg border-2 border-line text-lg">
+      <button @click="createRoom" :disabled="busy" class="h-14 rounded-2xl bg-g text-ink text-lg font-black shadow-[0_6px_0_#1E9A52]">建立新房間（我當主持人）</button>
+      <div class="flex items-center gap-3 text-mute text-sm"><span class="flex-1 h-0.5 bg-line"></span>或加入家人的房間<span class="flex-1 h-0.5 bg-line"></span></div>
+      <div class="flex gap-2">
+        <label for="cd" class="sr-only">房號</label>
+        <input id="cd" v-model="codeInput" inputmode="numeric" maxlength="4" placeholder="4 位數房號" class="flex-1 min-w-0 h-14 px-4 rounded-2xl bg-bg border-2 border-line text-2xl font-black tracking-[.4em] text-center">
+        <button @click="joinRoom(codeInput)" :disabled="busy" class="h-14 px-6 rounded-2xl bg-o text-ink text-lg font-black shadow-[0_6px_0_#B85A10]">加入</button>
+      </div>
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="text-xl font-black">計分規則</h2>
+      <div class="overflow-x-auto rounded-2xl bg-card">
+        <table class="w-full min-w-[420px] text-sm">
+          <thead class="text-soft text-left"><tr><th class="p-3">你目前在</th><th class="p-3">選中多數派</th><th class="p-3">沒選中</th></tr></thead>
+          <tbody>
+            <tr class="border-t-2 border-card2"><td class="p-3"><span class="px-2 py-1 rounded-full bg-o text-ink font-black">橘隊</span></td><td class="p-3 text-g font-bold">晉升綠隊 +1</td><td class="p-3">維持橘隊 +0</td></tr>
+            <tr class="border-t-2 border-card2"><td class="p-3"><span class="px-2 py-1 rounded-full bg-g text-ink font-black">綠隊</span></td><td class="p-3 text-g font-bold">留在綠隊 +2</td><td class="p-3 text-o font-bold">跌回橘隊 +0</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-soft text-sm leading-relaxed">最高票平手時：綠隊有選到平手答案的人留在綠隊 +2，沒選到的跌回橘隊；橘隊這回合無法晉升。</p>
+    </section>
+  </main>
+
+  <!-- ================= 房間 ================= -->
+  <div v-if="view==='room' && meta" class="flex-1 w-full max-w-5xl mx-auto px-4 py-5 flex flex-col lg:flex-row gap-5 items-start">
+    <main class="flex-1 min-w-0 w-full flex flex-col gap-4">
+
+      <!-- 主持人離線 -->
+      <div v-if="!isHost && !hostOnline && meta.status!=='lobby'" class="p-4 rounded-2xl bg-yel text-ink flex flex-wrap items-center justify-between gap-3">
+        <span class="font-bold">主持人好像斷線了。</span>
+        <button @click="takeover" class="h-11 px-4 rounded-xl bg-ink text-white font-black">由我接手主持</button>
+      </div>
+
+      <!-- ---------- 等待室 ---------- -->
+      <template v-if="meta.status==='lobby'">
+        <section class="p-5 rounded-3xl bg-card flex flex-col items-center gap-3 text-center">
+          <span class="text-soft font-bold">房號</span>
+          <span class="font-disp text-6xl tracking-[.2em] text-g">{{ code }}</span>
+          <p class="text-soft text-sm">請家人打開同一個網址，輸入這 4 個數字</p>
+          <button @click="shareRoom" class="h-12 px-5 rounded-2xl bg-g text-ink font-black">分享邀請連結</button>
+        </section>
+
+        <section class="p-5 rounded-3xl bg-card flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-black">已加入（{{ humans.length }} 人{{ aiCountSetting ? ' + AI ' + aiCountSetting : '' }}）</h2>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div v-for="p in humans" :key="p.id" class="pop p-3 rounded-2xl bg-card2 flex items-center gap-2 min-w-0">
+              <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="p.online ? 'bg-g' : 'bg-mute'" :aria-label="p.online ? '在線' : '離線'"></span>
+              <span class="font-bold truncate">{{ p.name }}</span>
+              <span v-if="p.id===meta.hostId" class="ml-auto text-xs px-2 py-0.5 rounded-full bg-yel text-ink font-black shrink-0">主持</span>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="isHost" class="p-5 rounded-3xl bg-card flex flex-col gap-5">
+          <h2 class="text-lg font-black">遊戲設定（只有主持人看得到）</h2>
+          <div class="flex flex-col gap-2">
+            <span class="text-soft font-bold text-sm">回合數</span>
+            <div class="flex flex-wrap gap-2">
+              <button v-for="n in [10,12,15]" :key="n" @click="setSetting('rounds', n)" :aria-pressed="settings.rounds===n" class="h-11 px-4 rounded-xl font-black" :class="settings.rounds===n ? 'bg-g text-ink' : 'bg-card2'">{{ n }} 回</button>
+            </div>
+          </div>
+          <div class="flex flex-col gap-2">
+            <span class="text-soft font-bold text-sm">每題作答時間</span>
+            <div class="flex flex-wrap gap-2">
+              <button v-for="t in [[0,'不計時'],[20,'20 秒'],[30,'30 秒'],[45,'45 秒']]" :key="t[0]" @click="setSetting('timer', t[0])" :aria-pressed="settings.timer===t[0]" class="h-11 px-4 rounded-xl font-black" :class="settings.timer===t[0] ? 'bg-g text-ink' : 'bg-card2'">{{ t[1] }}</button>
+            </div>
+          </div>
+          <div class="flex flex-col gap-2">
+            <span class="text-soft font-bold text-sm">題型（可複選）</span>
+            <div class="flex flex-wrap gap-2">
+              <button v-for="k in ['c2','c3','fill']" :key="k" @click="toggleType(k)" :aria-pressed="!!settings.types[k]" class="h-11 px-4 rounded-xl font-black" :class="settings.types[k] ? 'bg-g text-ink' : 'bg-card2'">{{ TYPE_LABEL[k] }}</button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <span class="text-soft font-bold text-sm">AI 玩家（人數不夠時補位）</span>
+              <p class="text-mute text-xs mt-1">{{ aiPreview }}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="setSetting('aiCount', Math.max(0, aiCountSetting-1))" aria-label="減少 AI" class="h-11 w-11 rounded-xl border-2 border-line text-xl font-black">−</button>
+              <span class="w-8 text-center text-xl font-black">{{ aiCountSetting }}</span>
+              <button @click="setSetting('aiCount', Math.min(5, aiCountSetting+1))" aria-label="增加 AI" class="h-11 w-11 rounded-xl border-2 border-line text-xl font-black">＋</button>
+            </div>
+          </div>
+
+          <details class="rounded-2xl bg-card2 p-4">
+            <summary class="cursor-pointer font-black">家族專屬自訂題目（{{ custom.length }} 題）</summary>
+            <div class="flex flex-col gap-3 mt-4">
+              <div class="flex flex-wrap gap-2">
+                <button v-for="k in ['c2','c3','fill']" :key="k" @click="draft.t=k" :aria-pressed="draft.t===k" class="h-10 px-3 rounded-xl font-black text-sm" :class="draft.t===k ? 'bg-g text-ink' : 'bg-bg'">{{ TYPE_LABEL[k] }}</button>
+              </div>
+              <input v-model="draft.q" maxlength="60" placeholder="題目，例如：過年最期待哪道菜？" aria-label="題目" class="h-12 px-3 rounded-xl bg-bg border-2 border-line">
+              <template v-if="draft.t!=='fill'">
+                <input v-model="draft.o1" maxlength="16" placeholder="選項 A" aria-label="選項 A" class="h-12 px-3 rounded-xl bg-bg border-2 border-line">
+                <input v-model="draft.o2" maxlength="16" placeholder="選項 B" aria-label="選項 B" class="h-12 px-3 rounded-xl bg-bg border-2 border-line">
+                <input v-if="draft.t==='c3'" v-model="draft.o3" maxlength="16" placeholder="選項 C" aria-label="選項 C" class="h-12 px-3 rounded-xl bg-bg border-2 border-line">
+              </template>
+              <input v-else v-model="draft.ans" placeholder="常見答案給 AI 參考，用逗號分隔（可留空）" aria-label="常見答案" class="h-12 px-3 rounded-xl bg-bg border-2 border-line">
+              <button @click="addCustom" class="h-12 rounded-xl bg-g text-ink font-black">加入題庫</button>
+              <div v-for="c in custom" :key="c.id" class="flex items-center gap-2 p-3 rounded-xl bg-bg">
+                <span class="text-xs px-2 py-0.5 rounded-full text-ink font-black shrink-0" :style="{background: TYPE_COLOR[c.t]}">{{ TYPE_LABEL[c.t] }}</span>
+                <span class="flex-1 min-w-0 truncate">{{ c.q }}</span>
+                <button @click="removeCustom(c.id)" class="h-9 px-3 rounded-lg border-2 border-line text-sm">刪除</button>
+              </div>
+            </div>
+          </details>
+
+          <p class="text-mute text-sm">可用題目 {{ poolSize }} 題 · 目前 {{ humans.length + aiCountSetting }} 位玩家（至少 3 位）</p>
+          <button @click="startGame" class="h-16 rounded-2xl bg-g text-ink text-xl font-black shadow-[0_6px_0_#1E9A52] pulse2">開始遊戲</button>
+        </section>
+        <p v-else class="text-center text-soft py-4">等主持人按「開始遊戲」……</p>
+      </template>
+
+      <!-- ---------- 作答 ---------- -->
+      <template v-if="meta.status==='question' && q">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <span class="px-3 py-1.5 rounded-full bg-card font-black text-sm">第 {{ meta.round+1 }} / {{ meta.deck.length }} 回合</span>
+          <span class="px-3 py-1.5 rounded-full text-ink font-black text-sm" :style="{background: TYPE_COLOR[q.t]}">{{ TYPE_LABEL[q.t] }}</span>
+        </div>
+        <div v-if="settings.timer>0" class="flex items-center gap-3">
+          <div class="flex-1 h-3 rounded-full bg-card overflow-hidden"><div class="h-full transition-all duration-200" :style="{width: timePct+'%', background: timeColor}"></div></div>
+          <span class="w-14 text-center py-1 rounded-lg text-ink font-black" :class="timeLeft<=5 ? 'pulse2' : ''" :style="{background: timeColor}">{{ timeLeft }}s</span>
+        </div>
+        <div class="board deal px-5 py-7 text-center" :key="'q'+meta.round">
+          <span class="text-xs font-bold text-[#6A6F93]">猜猜「大家」會寫什麼</span>
+          <h2 class="font-hand text-3xl sm:text-4xl leading-snug mt-1">{{ q.q }}</h2>
+        </div>
+
+        <template v-if="!myAnswered">
+          <div v-if="q.t!=='fill'" class="grid gap-3" :class="q.o.length===3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'">
+            <button v-for="(o,i) in q.o" :key="i" @click="pick(i)" :aria-pressed="sel===i"
+              class="deal min-h-[96px] p-3 rounded-2xl border-4 font-hand text-2xl font-bold flex flex-col items-center justify-center gap-1"
+              :class="sel===i ? 'bg-[#FDFDFB] text-[#1B1F3B] border-g' : 'bg-card border-line'">
+              <span class="font-sans text-xs font-black opacity-70">{{ 'ABC'[i] }}</span>{{ o }}
+            </button>
+          </div>
+          <div v-else class="board p-4 flex flex-col gap-2">
+            <label for="fillin" class="text-sm font-bold text-[#6A6F93]">在白板上寫下答案</label>
+            <input id="fillin" v-model="fill" @keydown.enter="fill.trim() && submit()" maxlength="14" autocomplete="off" placeholder="寫在這裡……" class="font-hand h-20 text-4xl font-bold text-center bg-transparent border-b-4 border-dashed border-[#B9BCD6] text-[#1B1F3B] outline-none">
+            <span class="text-xs text-[#6A6F93]">常見的不同寫法會自動合併（例：台北／臺北市、週五／禮拜五）</span>
+          </div>
+          <button @click="submit()" :disabled="q.t==='fill' ? !fill.trim() : sel===null" class="h-16 rounded-2xl bg-o text-ink text-xl font-black shadow-[0_6px_0_#B85A10]">蓋牌送出</button>
+        </template>
+        <div v-else class="pop p-6 rounded-3xl bg-card flex flex-col items-center gap-2 text-center">
+          <div class="w-20 h-24 rounded-xl flex items-center justify-center font-disp text-4xl text-ink shadow-[0_6px_0_rgba(0,0,0,.3)]" :class="me && me.team==='green' ? 'bg-g' : 'bg-o'">?</div>
+          <strong class="text-lg">已蓋牌！</strong>
+          <span class="text-soft text-sm">等其他家人作答……</span>
+        </div>
+
+        <section class="p-4 rounded-2xl bg-card">
+          <h3 class="text-sm font-black text-soft mb-2">作答進度 {{ answeredCount }} / {{ onlineHumans.length }}</h3>
+          <div class="flex flex-wrap gap-2">
+            <span v-for="p in humans" :key="p.id" class="px-3 py-1.5 rounded-full text-sm font-bold" :class="answersR[p.id]!==undefined ? 'bg-g text-ink' : (p.online ? 'bg-card2' : 'bg-card2 opacity-50')">{{ answersR[p.id]!==undefined ? '✓ ' : '' }}{{ p.name }}</span>
+          </div>
+          <button v-if="isHost" @click="forceReveal" class="mt-3 h-11 px-4 rounded-xl border-2 border-line text-sm font-bold">不等了，直接開票</button>
+        </section>
+      </template>
+
+      <!-- ---------- 翻牌／結算 ---------- -->
+      <template v-if="(meta.status==='reveal' || meta.status==='result') && q && result">
+        <div class="board px-4 py-4 flex items-center justify-between gap-3 flex-wrap">
+          <h2 class="font-hand text-2xl leading-snug flex-1">{{ q.q }}</h2>
+          <span class="px-3 py-1 rounded-full text-ink font-black text-sm" :style="{background: TYPE_COLOR[q.t]}">{{ TYPE_LABEL[q.t] }}</span>
+        </div>
+
+        <div v-if="meta.status==='result' && myResult" class="pop p-4 rounded-2xl text-center font-black text-xl" :style="{background: badgeOf(myResult.kind).bg, color: badgeOf(myResult.kind).fg}">
+          你：{{ badgeOf(myResult.kind).text }}
+        </div>
+
+        <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
+          <div v-for="(c,i) in revealCards" :key="c.id" class="pcard flex flex-col gap-1.5" :class="{flipped: i < flippedCount}">
+            <div class="inner">
+              <div class="face text-ink" :style="{background: c.before==='green' ? '#36E07A' : '#FF8A2A', boxShadow: '0 5px 0 ' + (c.before==='green' ? '#1E9A52' : '#B85A10')}">
+                <span class="font-disp text-4xl leading-none">?</span>
+                <span class="text-xs font-black mt-1">{{ c.before==='green' ? '綠隊' : '橘隊' }}</span>
+              </div>
+              <div class="face front">
+                <span class="font-hand text-xl font-bold leading-tight break-all">{{ c.shown }}</span>
+                <span v-if="chartShown && c.inTop" class="pop mt-1 px-2 py-0.5 rounded-full bg-g text-ink text-[11px] font-black">多數派</span>
+              </div>
+            </div>
+            <strong class="text-sm text-center truncate" :class="c.id===myId ? 'text-yel' : ''">{{ c.name }}</strong>
+            <span v-if="meta.status==='result'" class="pop self-center px-2 py-0.5 rounded-full text-[11px] font-black" :style="{background: badgeOf(c.kind).bg, color: badgeOf(c.kind).fg}">{{ badgeOf(c.kind).short }}</span>
+          </div>
+        </div>
+
+        <section v-if="chartShown" class="rise p-4 rounded-3xl bg-card flex flex-col gap-4">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <h3 class="text-lg font-black">開票結果</h3>
+            <span class="pop px-3 py-1.5 rounded-full text-ink font-black text-sm" :style="{background: verdict.bg}">{{ verdict.text }}</span>
+          </div>
+          <div class="overflow-x-auto">
+            <div :style="{minWidth: (bars.length*80)+'px'}">
+              <div class="flex gap-3 items-end h-48 border-b-[3px] border-line px-1">
+                <div v-for="b in bars" :key="b.key" class="flex-1 min-w-[68px] h-full flex flex-col justify-end items-center gap-1">
+                  <span class="font-black text-xl" :style="{color: b.numColor}">{{ b.count }}</span>
+                  <div class="bar w-full max-w-[96px] rounded-t-xl" :style="{height: barsGrown ? b.h : '0%', background: b.color}"></div>
+                </div>
+              </div>
+              <div class="flex gap-3 px-1 pt-2">
+                <div v-for="b in bars" :key="'l'+b.key" class="flex-1 min-w-[68px] text-center">
+                  <strong class="font-hand text-lg break-all">{{ b.label }}</strong>
+                  <p class="text-[11px] text-mute leading-snug">{{ b.voters }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <template v-if="meta.status==='reveal'">
+            <button v-if="isHost" @click="applyResult" class="h-14 rounded-2xl bg-g text-ink text-lg font-black shadow-[0_6px_0_#1E9A52] pulse2">公布晉升結果</button>
+            <p v-else class="text-center text-soft">等主持人公布晉升結果……</p>
+          </template>
+          <template v-else>
+            <p class="text-center text-soft text-sm">{{ summary }}</p>
+            <button v-if="isHost" @click="nextRound" class="h-14 rounded-2xl bg-o text-ink text-lg font-black shadow-[0_6px_0_#B85A10]">{{ meta.round+1 >= meta.deck.length ? '看最終排行榜' : '下一回合' }}</button>
+            <p v-else class="text-center text-soft">等主持人進入下一回合……</p>
+          </template>
+        </section>
+        <button v-else @click="skipFlip=true" class="self-center h-11 px-5 rounded-xl border-2 border-line font-bold text-sm">全部翻開</button>
+      </template>
+
+      <!-- ---------- 最終排行 ---------- -->
+      <template v-if="meta.status==='final'">
+        <section class="pop flex flex-col items-center text-center gap-2 py-4">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#FFE066" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l4 4 5-7 5 7 4-4-2 11H5L3 8z"/></svg>
+          <p class="font-disp text-4xl"><span class="text-g">GREEN TEAM</span> <span class="text-o">WINS!</span></p>
+          <h1 class="text-3xl font-black">冠軍：{{ winners }}</h1>
+          <p class="text-soft">最懂這一家人的，拿下 {{ ranked[0] ? ranked[0].score : 0 }} 分</p>
+        </section>
+        <div class="flex flex-col gap-2">
+          <div v-for="p in ranked" :key="p.id" class="rise flex items-center gap-3 p-4 rounded-2xl" :class="p.score===ranked[0].score ? 'bg-g text-ink' : 'bg-card'">
+            <span class="font-disp text-2xl w-8 text-center">{{ p.rank }}</span>
+            <div class="flex-1 min-w-0"><strong class="block truncate">{{ p.name }}{{ p.isAI ? '（AI）' : '' }}</strong><span class="text-xs opacity-80">待在綠隊 {{ p.greenRounds || 0 }} 回合</span></div>
+            <span class="font-disp text-3xl">{{ p.score || 0 }}</span>
+          </div>
+        </div>
+        <button v-if="isHost" @click="backToLobby" class="h-14 rounded-2xl bg-g text-ink text-lg font-black shadow-[0_6px_0_#1E9A52]">同一個房間再玩一場</button>
+        <p v-else class="text-center text-soft">主持人可以開下一場，留在房間就好</p>
+      </template>
+    </main>
+
+    <!-- 排行榜 -->
+    <aside v-if="meta.status!=='lobby' && meta.status!=='final'" class="w-full lg:w-72 shrink-0 p-4 rounded-3xl bg-card flex flex-col gap-2">
+      <h2 class="font-black">即時排行榜</h2>
+      <div v-for="p in ranked" :key="p.id" class="flex items-center gap-2 p-2.5 rounded-xl bg-card2" :class="p.id===myId ? 'ring-2 ring-yel' : ''">
+        <span class="w-6 text-center font-black text-mute">{{ p.rank }}</span>
+        <span class="w-3 h-3 rounded-full shrink-0" :class="p.team==='green' ? 'bg-g' : 'bg-o'" aria-hidden="true"></span>
+        <span class="flex-1 min-w-0 truncate font-bold text-sm">{{ p.name }}<span v-if="p.isAI" class="text-mute text-xs"> AI</span><span v-if="!p.isAI && !p.online" class="text-mute text-xs"> 離線</span></span>
+        <span class="font-disp text-xl" :class="p.team==='green' ? 'text-g' : 'text-o'">{{ p.score || 0 }}</span>
+      </div>
+    </aside>
+  </div>
+
+  <div v-if="view==='room' && !meta" class="flex-1 flex items-center justify-center text-soft">連線中……</div>
+
+  <span v-for="k in confetti" :key="k.id" class="confetti" aria-hidden="true" :style="{left: k.left, width: k.w, background: k.color, animationDuration: k.dur, animationDelay: k.delay}"></span>
+</div>
+
+<script>
+/* ================= 題庫 ================= */
+const TYPE_LABEL = { c2: '二選一', c3: '三選一', fill: '填空題' };
+const TYPE_COLOR = { c2: '#7FD4FF', c3: '#FFE066', fill: '#F59BD0' };
+function C(id, q, o, w) { return { id, t: o.length === 2 ? 'c2' : 'c3', q, o, w }; }
+function F(id, q, ans, al, sfx) {
+  return { id, t: 'fill', q, ans: ans.split(',').map(s => { const p = s.split(':'); return [p[0], +p[1] || 1]; }), al: al || {}, sfx: sfx || '' };
+}
+const BANK = [
+  C('a1', '珍珠奶茶的甜度，你會點？', ['全糖', '微糖'], [35, 65]),
+  C('a2', '早餐店首選：蛋餅還是飯糰？', ['蛋餅', '飯糰'], [62, 38]),
+  C('a3', '放假想去：海邊還是山上？', ['海邊', '山上'], [55, 45]),
+  C('a4', '你是狗派還是貓派？', ['狗派', '貓派'], [52, 48]),
+  C('a5', '端午節吃粽子：南部粽還是北部粽？', ['南部粽', '北部粽'], [50, 50]),
+  C('a6', '擠牙膏的習慣：從尾巴擠還是中間擠？', ['從尾巴擠', '從中間擠'], [68, 32]),
+  C('a7', '洗澡時先洗？', ['先洗頭', '先洗身體'], [64, 36]),
+  C('a8', '看電影一定要配？', ['爆米花', '吉拿棒'], [78, 22]),
+  C('a9', '鳳梨可以放在披薩上嗎？', ['可以', '不行'], [46, 54]),
+  C('a10', '早上起床靠什麼？', ['鬧鐘', '自然醒'], [80, 20]),
+  C('a11', '吃火鍋沾醬：沙茶醬還是不沾醬？', ['沙茶醬', '不沾醬'], [76, 24]),
+  C('a12', '過年守歲：熬到午夜還是早早睡？', ['熬到午夜', '早早睡'], [62, 38]),
+  C('b1', '最想擁有哪一種超能力？', ['瞬間移動', '隱形', '讀心術'], [45, 22, 33]),
+  C('b2', '走進便利商店最常買？', ['飲料', '茶葉蛋', '御飯糰'], [52, 18, 30]),
+  C('b3', '最喜歡的季節？', ['春天', '秋天', '冬天'], [26, 44, 30]),
+  C('b4', '家族旅遊最想去？', ['溫泉', '海邊', '遊樂園'], [45, 25, 30]),
+  C('b5', '早餐飲料首選？', ['奶茶', '豆漿', '咖啡'], [45, 32, 23]),
+  C('b6', '年夜飯最期待？', ['佛跳牆', '烏魚子', '長年菜'], [42, 38, 20]),
+  C('b7', '第一次出國最想去？', ['日本', '韓國', '歐洲'], [55, 18, 27]),
+  C('b8', '逛夜市必吃？', ['雞排', '臭豆腐', '蚵仔煎'], [44, 26, 30]),
+  C('b9', '放假第一天最想做？', ['睡到自然醒', '出門玩', '追劇'], [50, 30, 20]),
+  C('b10', '三選一，你最怕哪個？', ['蟑螂', '鬼', '打針'], [60, 26, 14]),
+  C('b11', '手機只剩 1% 電，第一件事？', ['找插座', '關機省電', '繼續滑'], [55, 13, 32]),
+  C('b12', '家族聚餐最常聊的話題？', ['小孩課業', '誰要結婚', '健康養生'], [35, 30, 35]),
+  F('c1', '說出一種水果：＿＿＿', '香蕉:30,蘋果:25,芒果:15,西瓜:15,芭樂:10,鳳梨:5', { '芭樂': ['番石榴'] }),
+  F('c2', '最能代表台灣的小吃是：＿＿＿', '滷肉飯:35,小籠包:20,牛肉麵:20,臭豆腐:15,雞排:10', { '滷肉飯': ['魯肉飯', '肉燥飯'], '小籠包': ['湯包'], '雞排': ['炸雞排'] }),
+  F('c3', '說出一種顏色：＿＿＿', '紅色:35,藍色:30,黑色:15,綠色:10,白色:10', {}, '色'),
+  F('c4', '一提到「夏天」，你會想到：＿＿＿', '西瓜:25,海邊:25,冰淇淋:20,冷氣:20,蟬:10', { '冰淇淋': ['霜淇淋', '冰棒'], '海邊': ['海', '海灘', '沙灘'], '冷氣': ['吹冷氣'], '蟬': ['蟬叫', '知了'] }),
+  F('c5', '最常見的寵物是：＿＿＿', '狗:45,貓:40,兔子:8,倉鼠:7', { '狗': ['狗狗', '小狗', '犬'], '貓': ['貓咪', '小貓'], '兔子': ['兔', '小兔'], '倉鼠': ['黃金鼠'] }),
+  F('c6', '說出一種「用球」的運動：＿＿＿', '籃球:40,足球:20,棒球:20,排球:10,桌球:10', { '桌球': ['乒乓球'], '棒球': ['壘球'] }),
+  F('c7', '早餐店最經典的餐點：＿＿＿', '蛋餅:45,漢堡:20,吐司:20,蘿蔔糕:15', { '蛋餅': ['起司蛋餅', '玉米蛋餅'], '漢堡': ['豬肉漢堡', '雞腿堡'], '吐司': ['土司', '三明治'] }),
+  F('c8', '從 1 到 10 選一個數字：＿＿＿', '7:35,3:20,5:15,8:15,1:15', { '7': ['七'], '3': ['三'], '5': ['五'], '8': ['八'], '1': ['一'] }),
+  F('c9', '一週裡最喜歡星期幾？＿＿＿', '星期五:40,星期六:30,星期日:20,星期三:10', { '星期五': ['週五', '周五', '禮拜五', '五'], '星期六': ['週六', '周六', '禮拜六', '六'], '星期日': ['週日', '周日', '禮拜天', '星期天', '禮拜日', '日'], '星期三': ['週三', '周三', '禮拜三', '三'] }),
+  F('c10', '過年最常收到的東西：＿＿＿', '紅包:60,水果禮盒:15,零食:15,茶葉:10', { '紅包': ['壓歲錢', '錢'], '水果禮盒': ['水果'], '零食': ['餅乾', '糖果'] }),
+  F('c11', '說出一個台灣的縣市：＿＿＿', '台北:40,台南:20,高雄:20,台中:20', { '台北': ['台北市', '北市'], '台南': ['台南市'], '高雄': ['高雄市'], '台中': ['台中市'] }),
+  F('c12', '家裡遙控器最常被誰拿走？＿＿＿', '爸爸:40,阿公:25,媽媽:20,小孩:15', { '爸爸': ['爸', '老爸', '把拔'], '媽媽': ['媽', '老媽', '馬麻'], '阿公': ['爺爺', '外公'], '小孩': ['弟弟', '妹妹', '孩子'] })
+];
+const AIS = [
+  { name: '跟風小美', tag: '從眾型', temp: 0.45 },
+  { name: '直覺阿豪', tag: '直覺型', temp: 1 },
+  { name: '反骨小黑', tag: '叛逆型', temp: 2.6 },
+  { name: '理性博士', tag: '分析型', temp: 0.7 },
+  { name: '派對王阿凱', tag: '隨興型', temp: 1.5 }
+];
+
+/* ================= 計分核心（嚴格依《多數派》規則） ================= */
+function nrm(s) { return String(s == null ? '' : s).normalize('NFKC').toLowerCase().replace(/臺/g, '台').replace(/[\s\p{P}\p{S}]/gu, ''); }
+function stripKey(q, x) { let n = nrm(x); const s = nrm(q.sfx); if (s && n.length > s.length && n.endsWith(s)) n = n.slice(0, -s.length); return n; }
+function fillKey(q, raw) {
+  const n = stripKey(q, raw); if (!n) return null;
+  const al = q.al || {};
+  for (const k in al) {
+    if (stripKey(q, k) === n) return 'f_' + stripKey(q, k);
+    for (const a of (al[k] || [])) if (stripKey(q, a) === n) return 'f_' + stripKey(q, k);
+  }
+  return 'f_' + n;
+}
+function canonLabel(q, key) {
+  const al = q.al || {};
+  for (const k in al) if ('f_' + stripKey(q, k) === key) return k;
+  for (const a of (q.ans || [])) if ('f_' + stripKey(q, a[0]) === key) return a[0];
+  return null;
+}
+function sample(weights, temp) {
+  const p = weights.map(w => Math.pow(Math.max(w, 0.01), 1 / temp));
+  let r = Math.random() * p.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < p.length; i++) { r -= p[i]; if (r <= 0) return i; }
+  return p.length - 1;
+}
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function hasAnswer(q, raw) { return q.t === 'fill' ? !!(raw != null && String(raw).trim()) : (raw !== null && raw !== undefined && raw !== '' && q.o[raw] !== undefined); }
+
+function scoreRound(players, q, answers) {
+  const tally = {}, order = [];
+  if (q.t !== 'fill') q.o.forEach((o, i) => { tally['o' + i] = { key: 'o' + i, label: o, count: 0, voters: [] }; order.push('o' + i); });
+  const keyOf = {};
+  players.forEach(p => {
+    const raw = answers[p.id]; let key = null, label = null;
+    if (hasAnswer(q, raw)) {
+      if (q.t === 'fill') { key = fillKey(q, raw); label = canonLabel(q, key) || String(raw).trim(); }
+      else { key = 'o' + raw; label = q.o[raw]; }
+    }
+    keyOf[p.id] = key;
+    if (key) {
+      if (!tally[key]) { tally[key] = { key, label, count: 0, voters: [] }; order.push(key); }
+      tally[key].count++; tally[key].voters.push(p.name);
+    }
+  });
+  const entries = order.map(k => tally[k]);
+  const max = entries.reduce((m, e) => Math.max(m, e.count), 0);
+  const top = max > 0 ? entries.filter(e => e.count === max) : [];
+  const topKeys = {}; top.forEach(e => { topKeys[e.key] = true; });
+  const tie = top.length > 1;
+  const per = {};
+  players.forEach(p => {
+    const inTop = !!(keyOf[p.id] && topKeys[keyOf[p.id]]);
+    const before = p.team === 'green' ? 'green' : 'orange';
+    let after = before, delta = 0, kind;
+    if (!tie) {
+      if (inTop) { delta = before === 'orange' ? 1 : 2; kind = before === 'orange' ? 'promote' : 'stayGreen'; after = 'green'; }
+      else if (before === 'green') { after = 'orange'; kind = 'drop'; }
+      else kind = 'stayOrange';
+    } else {
+      if (before === 'green') { if (inTop) { delta = 2; kind = 'stayGreen'; } else { after = 'orange'; kind = 'drop'; } }
+      else kind = inTop ? 'tieNoPromote' : 'stayOrange';
+    }
+    const raw = answers[p.id];
+    const shown = hasAnswer(q, raw) ? (q.t === 'fill' ? String(raw).trim() : q.o[raw]) : '（未作答）';
+    per[p.id] = { name: p.name, inTop, before, after, delta, kind, shown };
+  });
+  return { entries, topKeys: top.map(e => e.key), tie, max, per };
+}
+
+/* ================= App ================= */
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+const READY = !!(window.firebase && firebaseConfig.databaseURL && !/YOUR_/.test(firebaseConfig.databaseURL + firebaseConfig.apiKey));
+let db = null;
+if (READY) { firebase.initializeApp(firebaseConfig); db = firebase.database(); }
+const TS = READY ? firebase.database.ServerValue.TIMESTAMP : 0;
+const FLIP_START = 700, FLIP_STEP = 550;
+
+const { createApp, ref, reactive, computed, watch, onMounted } = Vue;
+createApp({
+  setup() {
+    const myId = LS.get('gtw-id', null) || ('p' + Math.random().toString(36).slice(2, 10));
+    LS.set('gtw-id', myId);
+    const params = new URLSearchParams(location.search);
+
+    const view = ref(READY ? 'home' : 'setup');
+    const name = ref(LS.get('gtw-name', ''));
+    const codeInput = ref(params.get('room') || '');
+    const code = ref('');
+    const room = ref(null);
+    const offset = ref(0);
+    const now = ref(Date.now());
+    const sel = ref(null), fill = ref('');
+    const toast = ref(''), busy = ref(false), sound = ref(true);
+    const confetti = ref([]);
+    const skipFlip = ref(false);
+    const custom = ref(LS.get('gtw-custom', []));
+    const draft = reactive({ t: 'c2', q: '', o1: '', o2: '', o3: '', ans: '' });
+    let roomRef = null, connRef = null, revealing = false, autoSent = -1;
+
+    const say = (m) => { toast.value = m; clearTimeout(say._t); say._t = setTimeout(() => { toast.value = ''; }, 2600); };
+
+    /* ---------- 音效 ---------- */
+    let ac = null;
+    function actx() {
+      if (!sound.value) return null;
+      try { if (!ac) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A(); } if (ac.state === 'suspended') ac.resume(); return ac; } catch (e) { return null; }
+    }
+    document.addEventListener('pointerdown', () => actx(), { once: true });
+    function tone(f, dur, type, vol, when, slide) {
+      const a = actx(); if (!a) return;
+      const t = a.currentTime + (when || 0), o = a.createOscillator(), g = a.createGain();
+      o.type = type || 'sine'; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+      g.gain.setValueAtTime(vol || 0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + 0.03);
+    }
+    function noise(dur, vol) {
+      const a = actx(); if (!a) return;
+      const len = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      const s = a.createBufferSource(); s.buffer = buf; const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400;
+      const g = a.createGain(); g.gain.value = vol || 0.25; s.connect(bp); bp.connect(g); g.connect(a.destination); s.start();
+    }
+    function sfx(n) {
+      if (n === 'tick') tone(880, 0.07, 'square', 0.05);
+      else if (n === 'tickHot') tone(1320, 0.1, 'square', 0.08);
+      else if (n === 'select') tone(660, 0.08, 'triangle', 0.12);
+      else if (n === 'submit') { tone(520, 0.1, 'triangle', 0.12); tone(780, 0.14, 'triangle', 0.12, 0.08); }
+      else if (n === 'flip') { noise(0.14, 0.3); tone(240, 0.12, 'triangle', 0.1, 0, 720); }
+      else if (n === 'fanfare') [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.28, 'triangle', 0.13, i * 0.1));
+      else if (n === 'chime') { tone(784, 0.2, 'triangle', 0.12); tone(1175, 0.3, 'triangle', 0.1, 0.12); }
+      else if (n === 'drop') tone(520, 0.55, 'sawtooth', 0.05, 0, 110);
+      else if (n === 'drum') { for (let i = 0; i < 8; i++) tone(140, 0.06, 'square', 0.07, i * 0.06); }
+    }
+    function boom(n) {
+      const cols = ['#36E07A', '#FF8A2A', '#FFE066', '#FDFDFB', '#7FD4FF'], arr = [];
+      for (let i = 0; i < n; i++) arr.push({ id: Date.now() + '-' + i, left: (Math.random() * 100).toFixed(1) + '%', color: cols[i % 5], dur: (2.2 + Math.random() * 1.8).toFixed(2) + 's', delay: (Math.random() * 0.8).toFixed(2) + 's', w: (6 + Math.random() * 8).toFixed(0) + 'px' });
+      confetti.value = arr; setTimeout(() => { confetti.value = []; }, 4800);
+    }
+
+    /* ---------- 衍生資料 ---------- */
+    const serverNow = computed(() => now.value + offset.value);
+    const meta = computed(() => room.value && room.value.meta ? room.value.meta : null);
+    const settings = computed(() => {
+      const s = (meta.value && meta.value.settings) || {};
+      return { rounds: s.rounds || 10, timer: s.timer == null ? 30 : s.timer, types: s.types || { c2: true, c3: true, fill: true }, aiCount: s.aiCount || 0 };
+    });
+    const aiCountSetting = computed(() => settings.value.aiCount);
+    const players = computed(() => Object.entries((room.value && room.value.players) || {})
+      .map(([id, p]) => Object.assign({ id }, p))
+      .sort((a, b) => (a.isAI - b.isAI) || ((a.joinedAt || 0) - (b.joinedAt || 0))));
+    const humans = computed(() => players.value.filter(p => !p.isAI));
+    const onlineHumans = computed(() => humans.value.filter(p => p.online));
+    const me = computed(() => players.value.find(p => p.id === myId) || null);
+    const isHost = computed(() => !!meta.value && meta.value.hostId === myId);
+    const hostOnline = computed(() => { const h = players.value.find(p => meta.value && p.id === meta.value.hostId); return !!(h && h.online); });
+    const q = computed(() => meta.value && meta.value.deck ? meta.value.deck[meta.value.round] : null);
+    const answersR = computed(() => { if (!meta.value || !room.value || !room.value.answers) return {}; const r = room.value.answers['r' + meta.value.round] || {}; const o = {}; for (const k in r) o[k] = r[k].v; return o; });
+    const myAnswered = computed(() => answersR.value[myId] !== undefined);
+    const answeredCount = computed(() => humans.value.filter(p => answersR.value[p.id] !== undefined).length);
+    const timeLeft = computed(() => meta.value && meta.value.deadline ? Math.max(0, Math.ceil((meta.value.deadline - serverNow.value) / 1000)) : 0);
+    const timePct = computed(() => settings.value.timer > 0 ? Math.min(100, timeLeft.value / settings.value.timer * 100) : 0);
+    const timeColor = computed(() => timeLeft.value <= 5 ? '#FF8A2A' : timeLeft.value <= 10 ? '#FFE066' : '#36E07A');
+    const result = computed(() => room.value && room.value.result ? room.value.result : null);
+    const pool = computed(() => BANK.concat(custom.value).filter(x => settings.value.types[x.t]));
+    const poolSize = computed(() => pool.value.length);
+    const aiPreview = computed(() => aiCountSetting.value ? AIS.slice(0, aiCountSetting.value).map(a => a.name + '（' + a.tag + '）').join('、') : '不加入 AI');
+
+    const revealCards = computed(() => {
+      if (!result.value) return [];
+      const per = result.value.per || {};
+      const ids = players.value.map(p => p.id).filter(id => per[id]);
+      Object.keys(per).forEach(id => { if (!ids.includes(id)) ids.push(id); });
+      return ids.map(id => Object.assign({ id }, per[id]));
+    });
+    const elapsed = computed(() => meta.value && meta.value.revealAt ? serverNow.value - meta.value.revealAt : 0);
+    const flippedCount = computed(() => {
+      const n = revealCards.value.length;
+      if (!meta.value) return 0;
+      if (meta.value.status === 'result' || skipFlip.value) return n;
+      return Math.max(0, Math.min(n, Math.floor((elapsed.value - FLIP_START) / FLIP_STEP) + 1));
+    });
+    const chartAt = computed(() => FLIP_START + revealCards.value.length * FLIP_STEP + 250);
+    const chartShown = computed(() => !!meta.value && (meta.value.status === 'result' || skipFlip.value || elapsed.value >= chartAt.value));
+    const barsGrown = ref(false);
+    watch(chartShown, v => { barsGrown.value = false; if (v) setTimeout(() => { barsGrown.value = true; }, 80); }, { immediate: true });
+
+    const bars = computed(() => {
+      const r = result.value; if (!r || !q.value) return [];
+      const top = r.topKeys || [];
+      let list = (r.entries || []).slice();
+      if (q.value.t === 'fill') list.sort((a, b) => b.count - a.count);
+      const maxC = Math.max(1, r.max || 0);
+      return list.map(e => {
+        const isTop = top.includes(e.key);
+        const col = isTop ? (r.tie ? '#FFE066' : '#36E07A') : '#4A4F7A';
+        return { key: e.key, label: e.label, count: e.count, voters: (e.voters || []).join('、') || '—', h: e.count === 0 ? '2%' : Math.max(6, e.count / maxC * 100) + '%', color: col, numColor: isTop ? col : '#B9BCD6' };
+      });
+    });
+    const verdict = computed(() => {
+      const r = result.value; if (!r) return { text: '', bg: '#36E07A' };
+      if (!r.max) return { text: '沒有人作答', bg: '#B9BCD6' };
+      const labels = (r.entries || []).filter(e => (r.topKeys || []).includes(e.key)).map(e => '「' + e.label + '」');
+      return r.tie ? { text: '最高票平手：' + labels.join(''), bg: '#FFE066' } : { text: '多數派：' + labels[0], bg: '#36E07A' };
+    });
+    const myResult = computed(() => result.value && result.value.per ? result.value.per[myId] : null);
+    const summary = computed(() => {
+      const c = { promote: 0, stayGreen: 0, drop: 0 };
+      revealCards.value.forEach(x => { if (c[x.kind] !== undefined) c[x.kind]++; });
+      return '本回合：' + c.promote + ' 人晉升綠隊、' + c.stayGreen + ' 人留在綠隊、' + c.drop + ' 人跌回橘隊' + (result.value && result.value.tie ? '（平手回合，橘隊無法晉升）' : '');
+    });
+    const ranked = computed(() => {
+      const s = players.value.slice().sort((a, b) => (b.score || 0) - (a.score || 0) || (b.greenRounds || 0) - (a.greenRounds || 0));
+      return s.map((p, i) => { let k = i; while (k > 0 && (s[k - 1].score || 0) === (p.score || 0)) k--; return Object.assign({ rank: k + 1 }, p); });
+    });
+    const winners = computed(() => { const t = ranked.value[0] ? (ranked.value[0].score || 0) : 0; return ranked.value.filter(p => (p.score || 0) === t).map(p => p.name).join('、'); });
+    function badgeOf(kind) {
+      return ({
+        promote: { text: '晉升綠隊 +1！', short: '晉升 +1', bg: '#36E07A', fg: '#0E1020' },
+        stayGreen: { text: '留在綠隊 +2！', short: '留綠 +2', bg: '#36E07A', fg: '#0E1020' },
+        drop: { text: '跌回橘隊……', short: '跌回橘隊', bg: '#FF8A2A', fg: '#0E1020' },
+        tieNoPromote: { text: '平手，這回合無法晉升', short: '平手不晉升', bg: '#FFE066', fg: '#0E1020' },
+        stayOrange: { text: '維持橘隊 +0', short: '橘隊 +0', bg: '#3A3F66', fg: '#F3F4FA' }
+      })[kind] || { text: '', short: '', bg: '#3A3F66', fg: '#F3F4FA' };
+    }
+
+    /* ---------- 房間 ---------- */
+    function rp(path) { return db.ref('rooms/' + code.value + (path ? '/' + path : '')); }
+    async function createRoom() {
+      if (!name.value.trim()) return say('先輸入你的暱稱');
+      busy.value = true;
+      try {
+        for (let i = 0; i < 12; i++) {
+          const c = String(Math.floor(1000 + Math.random() * 9000));
+          const res = await db.ref('rooms/' + c + '/meta').transaction(cur => cur === null ? { hostId: myId, status: 'lobby', round: 0, createdAt: Date.now(), settings: { rounds: 10, timer: 30, types: { c2: true, c3: true, fill: true }, aiCount: 0 } } : undefined);
+          if (res.committed) { await joinRoom(c, true); return; }
+        }
+        say('建立房間失敗，請再試一次');
+      } catch (e) { console.error(e); say('連線失敗：請確認 Firebase 設定與規則'); }
+      finally { busy.value = false; }
+    }
+    async function joinRoom(c, skipBusy) {
+      c = String(c || '').trim();
+      if (!name.value.trim()) return say('先輸入你的暱稱');
+      if (!/^\d{4}$/.test(c)) return say('房號是 4 位數字');
+      if (!skipBusy) busy.value = true;
+      try {
+        const m = await db.ref('rooms/' + c + '/meta').get();
+        if (!m.exists()) { say('找不到這個房間'); return; }
+        LS.set('gtw-name', name.value.trim());
+        code.value = c;
+        const pRef = rp('players/' + myId);
+        const ex = (await pRef.get()).val();
+        if (ex) await pRef.update({ name: name.value.trim(), online: true });
+        else await pRef.set({ name: name.value.trim(), team: 'orange', score: 0, greenRounds: 0, online: true, isAI: false, joinedAt: TS });
+        pRef.onDisconnect().update({ online: false });
+        connRef = db.ref('.info/connected');
+        connRef.on('value', s => { if (s.val() === true && code.value) { pRef.update({ online: true }); pRef.onDisconnect().update({ online: false }); } });
+        roomRef = db.ref('rooms/' + c);
+        roomRef.on('value', s => { room.value = s.val(); if (!s.exists()) { say('房間已關閉'); cleanup(); } });
+        view.value = 'room';
+        history.replaceState(null, '', location.pathname + '?room=' + c);
+      } catch (e) { console.error(e); say('連線失敗：請確認 Firebase 設定與規則'); }
+      finally { if (!skipBusy) busy.value = false; }
+    }
+    function cleanup() {
+      if (roomRef) roomRef.off(); if (connRef) connRef.off();
+      roomRef = null; connRef = null; room.value = null; code.value = ''; view.value = 'home';
+      history.replaceState(null, '', location.pathname);
+    }
+    async function leave() {
+      if (!code.value) return cleanup();
+      const pRef = rp('players/' + myId);
+      try { await pRef.onDisconnect().cancel(); if (meta.value && meta.value.status === 'lobby') await pRef.remove(); else await pRef.update({ online: false }); } catch (e) {}
+      cleanup();
+    }
+    function shareRoom() {
+      const url = location.origin + location.pathname + '?room=' + code.value;
+      const text = '來玩《多數派》！房號 ' + code.value;
+      if (navigator.share) navigator.share({ title: '多數派', text, url }).catch(() => {});
+      else copy(text + '\n' + url);
+    }
+    function copy(t) { (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => say('已複製'), () => say('請手動複製')); }
+    function setSetting(k, v) { rp('meta/settings/' + k).set(v); }
+    function toggleType(k) { rp('meta/settings/types/' + k).set(!settings.value.types[k]); }
+    function takeover() { rp('meta/hostId').set(myId); say('你現在是主持人'); }
+
+    function addCustom() {
+      const qt = draft.q.trim(); if (!qt) return say('請先輸入題目');
+      let item;
+      if (draft.t === 'fill') item = { id: 'u' + Date.now(), t: 'fill', q: qt, ans: draft.ans.split(/[,，、]/).map(x => x.trim()).filter(Boolean).map(a => [a, 1]), al: {}, sfx: '', custom: true };
+      else {
+        const o = [draft.o1, draft.o2].concat(draft.t === 'c3' ? [draft.o3] : []).map(x => x.trim());
+        if (o.some(x => !x)) return say('每個選項都要填寫');
+        item = { id: 'u' + Date.now(), t: draft.t, q: qt, o, w: o.map(() => 1), custom: true };
+      }
+      custom.value = custom.value.concat([item]); LS.set('gtw-custom', custom.value);
+      Object.assign(draft, { q: '', o1: '', o2: '', o3: '', ans: '' }); say('已加入題庫');
+    }
+    function removeCustom(id) { custom.value = custom.value.filter(x => x.id !== id); LS.set('gtw-custom', custom.value); }
+
+    /* ---------- 玩家動作 ---------- */
+    function pick(i) { sel.value = i; sfx('select'); }
+    function submit(blank) {
+      if (!q.value || myAnswered.value) return;
+      const v = blank ? (q.value.t === 'fill' ? fill.value.trim() : (sel.value === null ? '' : sel.value)) : (q.value.t === 'fill' ? fill.value.trim() : sel.value);
+      rp('answers/r' + meta.value.round + '/' + myId).set({ v: v === null ? '' : v });
+      sfx('submit');
+    }
+
+    /* ---------- 主持人動作 ---------- */
+    async function startGame() {
+      const total = humans.value.length + aiCountSetting.value;
+      if (total < 3) return say('至少要 3 位玩家，可以加入 AI 補位');
+      if (!pool.value.length) return say('請至少選一種題型');
+      let deck = []; while (deck.length < settings.value.rounds) deck = deck.concat(shuffle(pool.value));
+      deck = deck.slice(0, settings.value.rounds).map(x => JSON.parse(JSON.stringify(x)));
+      const u = {};
+      players.value.forEach(p => { if (p.isAI) u['players/' + p.id] = null; else { u['players/' + p.id + '/team'] = 'orange'; u['players/' + p.id + '/score'] = 0; u['players/' + p.id + '/greenRounds'] = 0; } });
+      AIS.slice(0, aiCountSetting.value).forEach((a, i) => { u['players/ai' + i] = { name: a.name, tag: a.tag, temp: a.temp, isAI: true, online: true, team: 'orange', score: 0, greenRounds: 0, joinedAt: Date.now() + i }; });
+      u['answers'] = null; u['result'] = null;
+      u['meta/deck'] = deck; u['meta/round'] = 0; u['meta/status'] = 'question'; u['meta/revealAt'] = null;
+      u['meta/deadline'] = settings.value.timer > 0 ? serverNow.value + settings.value.timer * 1000 : 0;
+      await rp().update(u);
+    }
+    async function doReveal() {
+      if (revealing || !meta.value || meta.value.status !== 'question' || !q.value) return;
+      revealing = true;
+      try {
+        const all = Object.assign({}, answersR.value); const u = {};
+        players.value.forEach(p => {
+          if (!p.isAI) return;
+          let v;
+          if (q.value.t === 'fill') { const list = q.value.ans && q.value.ans.length ? q.value.ans : [['不知道', 1]]; v = list[sample(list.map(a => a[1]), p.temp || 1)][0]; }
+          else v = sample(q.value.w || q.value.o.map(() => 1), p.temp || 1);
+          all[p.id] = v; u['answers/r' + meta.value.round + '/' + p.id] = { v };
+        });
+        const res = scoreRound(players.value, q.value, all);
+        u['result'] = res; u['meta/status'] = 'reveal'; u['meta/revealAt'] = TS;
+        await rp().update(u);
+      } finally { revealing = false; }
+    }
+    function forceReveal() { doReveal(); }
+    async function applyResult() {
+      if (!meta.value || meta.value.status !== 'reveal' || !result.value) return;
+      const per = result.value.per || {}; const u = {};
+      players.value.forEach(p => {
+        const x = per[p.id]; if (!x) return;
+        u['players/' + p.id + '/team'] = x.after;
+        u['players/' + p.id + '/score'] = (p.score || 0) + x.delta;
+        u['players/' + p.id + '/greenRounds'] = (p.greenRounds || 0) + (x.after === 'green' ? 1 : 0);
+      });
+      u['meta/status'] = 'result';
+      await rp().update(u);
+    }
+    async function nextRound() {
+      const m = meta.value; if (!m) return;
+      if (m.round + 1 >= m.deck.length) { await rp('meta/status').set('final'); return; }
+      await rp().update({ 'meta/round': m.round + 1, 'meta/status': 'question', 'meta/revealAt': null, 'result': null,
+        'meta/deadline': settings.value.timer > 0 ? serverNow.value + settings.value.timer * 1000 : 0 });
+    }
+    async function backToLobby() { await rp().update({ 'meta/status': 'lobby', 'meta/round': 0, 'answers': null, 'result': null, 'meta/revealAt': null }); }
+
+    /* ---------- 時鐘：計時、主持人自動開票 ---------- */
+    let lastTick = -1;
+    setInterval(() => {
+      now.value = Date.now();
+      const m = meta.value; if (!m || view.value !== 'room') return;
+      if (m.status === 'question' && settings.value.timer > 0) {
+        const t = timeLeft.value;
+        if (!myAnswered.value && t !== lastTick && t > 0) { if (t <= 5) sfx('tickHot'); else if (t <= 10) sfx('tick'); }
+        lastTick = t;
+        if (t <= 0 && !myAnswered.value && autoSent !== m.round) { autoSent = m.round; submit(true); say('時間到！已自動送出'); }
+      }
+      if (isHost.value && m.status === 'question') {
+        const oh = onlineHumans.value;
+        const allIn = oh.length > 0 && oh.every(p => answersR.value[p.id] !== undefined);
+        const timeUp = settings.value.timer > 0 && m.deadline && serverNow.value >= m.deadline + 1200;
+        if (allIn || timeUp) doReveal();
+      }
+    }, 200);
+
+    /* ---------- 狀態轉換時的音效與特效 ---------- */
+    watch(() => meta.value ? meta.value.status + ':' + meta.value.round : '', (v, old) => {
+      if (!meta.value || v === old) return;
+      const st = meta.value.status;
+      if (st === 'question') { sel.value = null; fill.value = ''; skipFlip.value = false; sfx('submit'); }
+      if (st === 'reveal') { skipFlip.value = false; sfx('drum'); }
+      if (st === 'result' && old && old.startsWith('reveal')) {
+        const r = myResult.value;
+        if (r && r.kind === 'promote') { sfx('fanfare'); boom(110); }
+        else if (r && r.kind === 'stayGreen') { sfx('chime'); boom(40); }
+        else if (r && r.kind === 'drop') sfx('drop');
+        else sfx('submit');
+      }
+      if (st === 'final') { sfx('fanfare'); boom(140); }
+    });
+    watch(flippedCount, (v, o) => { if (v > (o || 0) && meta.value && meta.value.status === 'reveal') sfx('flip'); });
+
+    onMounted(() => {
+      if (!READY) return;
+      db.ref('.info/serverTimeOffset').on('value', s => { offset.value = s.val() || 0; });
+    });
+
+    const setupSteps = [
+      '打開 <b>console.firebase.google.com</b>，用 Google 帳號登入 → 「建立專案」，名稱隨意（例：family-game），Google Analytics 可以關掉。',
+      '左側選單「建構 › Realtime Database」→「建立資料庫」→ 位置選 <b>Singapore (asia-southeast1)</b> → 選「以鎖定模式啟動」。',
+      '進入資料庫的「規則」分頁，把下面的規則整段貼上取代原本內容 → 按「發布」。',
+      '回到專案首頁，點齒輪「專案設定」→ 往下找「你的應用程式」→ 點 <b>&lt;/&gt;</b>（網頁）圖示 → 取個暱稱 → 註冊，畫面會出現一段 <b>firebaseConfig</b>。',
+      '用記事本打開 index.html，把最上方 firebaseConfig 的內容換成你的那段。若你的設定裡沒有 <b>databaseURL</b>，到 Realtime Database 頁面上方複製那串網址（https://…firebasedatabase.app）自己補上。',
+      '存檔後上傳到 GitHub Pages（步驟見 Claude 的回覆），家人用手機打開網址即可遊玩。'
+    ];
+    const rulesText = JSON.stringify({ rules: { rooms: { '$code': { '.read': true, '.write': true, '.validate': "$code.matches(/^[0-9]{4}$/)" } } } }, null, 2);
+
+    return { view, name, codeInput, code, room, meta, settings, aiCountSetting, players, humans, onlineHumans, me, myId, isHost, hostOnline,
+      q, answersR, myAnswered, answeredCount, timeLeft, timePct, timeColor, result, pool, poolSize, aiPreview, custom, draft,
+      revealCards, flippedCount, chartShown, barsGrown, bars, verdict, myResult, summary, ranked, winners, badgeOf,
+      sel, fill, toast, busy, sound, confetti, skipFlip, TYPE_LABEL, TYPE_COLOR, setupSteps, rulesText,
+      createRoom, joinRoom, leave, shareRoom, copy, setSetting, toggleType, takeover, addCustom, removeCustom,
+      pick, submit, startGame, forceReveal, applyResult, nextRound, backToLobby };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
