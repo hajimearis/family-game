@@ -47,6 +47,16 @@ tailwind.config = { theme: { extend: {
   .sofa:before,.sofa:after{content:"";position:absolute;bottom:-20px;width:10px;height:12px;background:#1E9A52;border-radius:0 0 4px 4px}
   .sofa:before{left:10px}.sofa:after{right:10px}
   .seat{background:#FDFDFB;color:#0E1020;border-radius:12px;padding:6px 10px;font-size:14px;font-weight:700;box-shadow:0 3px 0 #1E9A52}
+  .sofa-mini{display:flex;align-items:center;gap:8px;background:#36E07A;color:#0E1020;border-radius:14px;padding:6px 8px;border-left:8px solid #2BC468;border-right:8px solid #2BC468;box-shadow:inset 0 5px 0 #2BC468, 0 4px 0 #1E9A52}
+  .stand-row{display:flex;align-items:center;gap:8px;padding:2px 2px 0}
+  .chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0;padding:3px 2px}
+  .chips::-webkit-scrollbar{display:none}
+  .mchip{flex:none;border-radius:10px;padding:3px 8px;font-size:13px;font-weight:700;white-space:nowrap;line-height:1.4}
+  @media (max-width:1023px){
+    .cta{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:45}
+    .cta-note{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:45;background:#22253F;border:2px solid #3A3F66;border-radius:16px;padding:14px;margin:0}
+  }
+  @media (max-width:640px){ .pcard .inner{height:92px} }
   .confetti{position:fixed;top:0;height:14px;border-radius:2px;pointer-events:none;z-index:60;animation:fall linear both}
 </style>
 </head>
@@ -70,7 +80,8 @@ const firebaseConfig = {
 <div id="app" v-cloak class="min-h-screen flex flex-col">
 
   <!-- 頂部列 -->
-  <header class="sticky top-0 z-40 bg-bg/95 backdrop-blur border-b-2 border-card px-4 py-3 flex items-center justify-between gap-3">
+  <header class="sticky top-0 z-40 bg-bg/95 backdrop-blur border-b-2 border-card px-3 sm:px-4 py-2">
+    <div class="flex items-center justify-between gap-2">
     <div class="flex items-baseline gap-2 min-w-0">
       <span class="font-black text-xl tracking-widest">多數派</span>
       <span class="font-disp text-xs hidden sm:inline"><span class="text-g">GREEN</span> <span class="text-o">TEAM WINS</span></span>
@@ -82,6 +93,24 @@ const firebaseConfig = {
         <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
       </button>
       <button v-if="view==='room'" @click="leave" class="h-11 px-3 rounded-full border-2 border-line text-sm font-bold">離開</button>
+    </div>
+    </div>
+    <div v-if="view==='room' && meta && meta.status!=='lobby' && meta.status!=='final'" class="max-w-5xl mx-auto mt-2 flex flex-col gap-1.5">
+      <div class="flex items-center gap-2 text-xs font-bold text-soft"><span>第 {{ meta.round+1 }} / {{ (meta.deck||[]).length }} 回合</span><span class="ml-auto px-2 py-0.5 rounded-full bg-card2 text-yel">{{ phaseLabel }}</span></div>
+      <div class="sofa-mini">
+        <span class="flex items-center gap-1 text-xs font-black shrink-0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v3"/><path d="M2 16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H6v-2a2 2 0 0 0-4 0z"/><path d="M4 18v2M20 18v2"/></svg>沙發 {{ livingRoom.seated.length }}</span>
+        <div class="chips">
+          <span v-for="p in livingRoom.seated" :key="p.id" class="mchip bg-[#FDFDFB]" :class="[p.moved==='up' ? 'pop ring-2 ring-yel' : '', p.isMe ? 'outline outline-2 outline-ink' : '']">{{ p.name }} <span class="opacity-60">{{ p.score }}</span><b v-if="p.moved==='up'" class="text-gd"> ↑新坐下</b></span>
+          <span v-if="!livingRoom.seated.length" class="mchip opacity-70">還空著，快來搶位子！</span>
+        </div>
+      </div>
+      <div class="stand-row">
+        <span class="flex items-center gap-1 text-xs font-black text-o shrink-0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v7"/><path d="M7.5 10h9"/><path d="M9.5 21l2.5-7 2.5 7"/></svg>站著 {{ livingRoom.standing.length }}</span>
+        <div class="chips">
+          <span v-for="p in livingRoom.standing" :key="p.id" class="mchip" :class="[p.moved==='down' ? 'pop bg-o text-ink' : 'bg-card2', p.isMe ? 'outline outline-2 outline-yel' : '']">{{ p.name }} <span class="opacity-60">{{ p.score }}</span><b v-if="p.moved==='down'"> ↓被擠下</b></span>
+          <span v-if="!livingRoom.standing.length" class="mchip text-mute">全家都坐下了！</span>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -148,7 +177,7 @@ const firebaseConfig = {
   </main>
 
   <!-- ================= 房間 ================= -->
-  <div v-if="view==='room' && meta" class="flex-1 w-full max-w-5xl mx-auto px-4 py-5 flex flex-col lg:flex-row gap-5 items-start">
+  <div v-if="view==='room' && meta" class="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-4 pt-4 pb-28 lg:pb-5 flex flex-col lg:flex-row gap-4 lg:gap-5 items-start">
     <main class="flex-1 min-w-0 w-full flex flex-col gap-4">
 
       <!-- 主持人離線 -->
@@ -156,25 +185,6 @@ const firebaseConfig = {
         <span class="font-bold">主持人好像斷線了。</span>
         <button @click="takeover" class="h-11 px-4 rounded-xl bg-ink text-white font-black">由我接手主持</button>
       </div>
-
-      <!-- ---------- 客廳現況 ---------- -->
-      <section v-if="meta.status==='question' || meta.status==='result'" class="rise p-4 rounded-3xl bg-card flex flex-col gap-3">
-        <div class="flex items-center justify-between gap-2 flex-wrap">
-          <h3 class="font-black flex items-center gap-1.5 text-g"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v3"/><path d="M2 16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H6v-2a2 2 0 0 0-4 0z"/><path d="M4 18v2M20 18v2"/></svg>客廳沙發</h3>
-          <span class="text-xs text-mute">猜中多數派才能坐沙發</span>
-        </div>
-        <div class="sofa">
-          <div class="flex flex-wrap gap-2 justify-center items-center min-h-[38px]">
-            <span v-for="p in livingRoom.seated" :key="p.id" class="seat" :class="p.moved==='up' ? 'pop ring-4 ring-yel' : ''">{{ p.name }}<b v-if="p.moved==='up'" class="text-[11px] text-gd ml-1">新坐下</b></span>
-            <span v-if="!livingRoom.seated.length" class="text-ink text-sm font-bold opacity-70">沙發還空著，快來搶第一個位子！</span>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="text-o text-sm font-black flex items-center gap-1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v7"/><path d="M7.5 10h9"/><path d="M9.5 21l2.5-7 2.5 7"/></svg>站著</span>
-          <span v-for="p in livingRoom.standing" :key="p.id" class="px-2.5 py-1 rounded-full text-sm font-bold" :class="p.moved==='down' ? 'pop bg-o text-ink' : 'bg-card2'">{{ p.name }}<b v-if="p.moved==='down'" class="text-[11px] ml-1">被擠下</b></span>
-          <span v-if="!livingRoom.standing.length" class="text-mute text-sm">沒有人站著，全家都坐下了！</span>
-        </div>
-      </section>
 
       <!-- ---------- 等待室 ---------- -->
       <template v-if="meta.status==='lobby'">
@@ -259,9 +269,9 @@ const firebaseConfig = {
           </details>
 
           <p class="text-mute text-sm">可用題目 {{ poolSize }} 題 · 目前 {{ humans.length + aiCountSetting }} 位玩家（至少 3 位）</p>
-          <button @click="startGame" class="h-16 rounded-2xl bg-g text-ink text-xl font-black shadow-[0_6px_0_#1E9A52] pulse2">開始遊戲</button>
+          <button @click="startGame" class="cta h-16 rounded-2xl bg-g text-ink text-xl font-black shadow-[0_6px_0_#1E9A52] pulse2">開始遊戲</button>
         </section>
-        <p v-else class="text-center text-soft py-4">等主持人按「開始遊戲」……</p>
+        <p v-else class="cta-note text-center text-soft py-4">等主持人按「開始遊戲」……</p>
       </template>
 
       <!-- ---------- 作答 ---------- -->
@@ -274,7 +284,7 @@ const firebaseConfig = {
           <div class="flex-1 h-3 rounded-full bg-card overflow-hidden"><div class="h-full transition-all duration-200" :style="{width: timePct+'%', background: timeColor}"></div></div>
           <span class="w-14 text-center py-1 rounded-lg text-ink font-black" :class="timeLeft<=5 ? 'pulse2' : ''" :style="{background: timeColor}">{{ timeLeft }}s</span>
         </div>
-        <div class="board deal px-5 py-7 text-center" :key="'q'+meta.round">
+        <div class="board deal px-4 py-5 sm:px-5 sm:py-7 text-center" :key="'q'+meta.round">
           <span class="text-xs font-bold text-[#6A6F93]">猜猜「大家」會寫什麼</span>
           <h2 class="font-hand text-3xl sm:text-4xl leading-snug mt-1">{{ q.q }}</h2>
         </div>
@@ -292,7 +302,7 @@ const firebaseConfig = {
             <input id="fillin" v-model="fill" @keydown.enter="fill.trim() && submit()" maxlength="14" autocomplete="off" placeholder="寫在這裡……" class="font-hand h-20 text-4xl font-bold text-center bg-transparent border-b-4 border-dashed border-[#B9BCD6] text-[#1B1F3B] outline-none">
             <span class="text-xs text-[#6A6F93]">常見的不同寫法會自動合併（例：台北／臺北市、週五／禮拜五）</span>
           </div>
-          <button @click="submit()" :disabled="q.t==='fill' ? !fill.trim() : sel===null" class="h-16 rounded-2xl bg-o text-ink text-xl font-black shadow-[0_6px_0_#B85A10]">蓋牌送出</button>
+          <button @click="submit()" :disabled="q.t==='fill' ? !fill.trim() : sel===null" class="cta h-16 rounded-2xl bg-o text-ink text-xl font-black shadow-[0_6px_0_#B85A10]">蓋牌送出</button>
         </template>
         <div v-else class="pop p-6 rounded-3xl bg-card flex flex-col items-center gap-2 text-center">
           <div class="w-20 h-24 rounded-xl flex items-center justify-center font-disp text-4xl text-ink shadow-[0_6px_0_rgba(0,0,0,.3)]" :class="me && me.team==='green' ? 'bg-g' : 'bg-o'">?</div>
@@ -345,7 +355,7 @@ const firebaseConfig = {
           </div>
           <div class="overflow-x-auto">
             <div :style="{minWidth: (bars.length*80)+'px'}">
-              <div class="flex gap-3 items-end h-48 border-b-[3px] border-line px-1">
+              <div class="flex gap-3 items-end h-36 sm:h-48 border-b-[3px] border-line px-1">
                 <div v-for="b in bars" :key="b.key" class="flex-1 min-w-[68px] h-full flex flex-col justify-end items-center gap-1">
                   <span class="font-black text-xl" :style="{color: b.numColor}">{{ b.count }}</span>
                   <div class="bar w-full max-w-[96px] rounded-t-xl" :style="{height: barsGrown ? b.h : '0%', background: b.color}"></div>
@@ -360,14 +370,14 @@ const firebaseConfig = {
             </div>
           </div>
           <template v-if="meta.status==='reveal'">
-            <button v-if="isHost" @click="applyResult" class="h-14 rounded-2xl bg-g text-ink text-lg font-black shadow-[0_6px_0_#1E9A52] pulse2">公布晉升結果</button>
-            <p v-else class="text-center text-soft">等主持人公布晉升結果……</p>
+            <button v-if="isHost" @click="applyResult" class="cta h-14 rounded-2xl bg-g text-ink text-lg font-black shadow-[0_6px_0_#1E9A52] pulse2">公布晉升結果</button>
+            <p v-else class="cta-note text-center text-soft">等主持人公布晉升結果……</p>
           </template>
           <template v-else>
             <div v-if="q.talk" class="pop p-4 rounded-2xl bg-yel text-ink text-center"><span class="text-xs font-black opacity-70">揭曉後聊聊看</span><p class="text-lg font-black mt-1">{{ q.talk }}</p></div>
             <p class="text-center text-soft text-sm">{{ summary }}</p>
-            <button v-if="isHost" @click="nextRound" class="h-14 rounded-2xl bg-o text-ink text-lg font-black shadow-[0_6px_0_#B85A10]">{{ meta.round+1 >= meta.deck.length ? '看最終排行榜' : '下一回合' }}</button>
-            <p v-else class="text-center text-soft">等主持人進入下一回合……</p>
+            <button v-if="isHost" @click="nextRound" class="cta h-14 rounded-2xl bg-o text-ink text-lg font-black shadow-[0_6px_0_#B85A10]">{{ meta.round+1 >= meta.deck.length ? '看最終排行榜' : '下一回合' }}</button>
+            <p v-else class="cta-note text-center text-soft">等主持人進入下一回合……</p>
           </template>
         </section>
         <button v-else @click="skipFlip=true" class="self-center h-11 px-5 rounded-xl border-2 border-line font-bold text-sm">全部翻開</button>
@@ -394,7 +404,7 @@ const firebaseConfig = {
     </main>
 
     <!-- 排行榜 -->
-    <aside v-if="meta.status!=='lobby' && meta.status!=='final'" class="w-full lg:w-72 shrink-0 p-4 rounded-3xl bg-card flex flex-col gap-2">
+    <aside v-if="meta.status!=='lobby' && meta.status!=='final'" class="hidden lg:flex w-full lg:w-72 shrink-0 p-4 rounded-3xl bg-card flex-col gap-2">
       <h2 class="font-black">即時排行榜</h2>
       <div v-for="p in ranked" :key="p.id" class="flex items-center gap-2 p-2.5 rounded-xl bg-card2" :class="p.id===myId ? 'ring-2 ring-yel' : ''">
         <span class="w-6 text-center font-black text-mute">{{ p.rank }}</span>
@@ -632,9 +642,10 @@ createApp({
     const myResult = computed(() => result.value && result.value.per ? result.value.per[myId] : null);
     const livingRoom = computed(() => {
       const st = meta.value && meta.value.status; const per = (result.value && result.value.per) || {};
-      const list = players.value.map(p => { let moved = null; if (st === 'result' && per[p.id]) { if (per[p.id].kind === 'promote') moved = 'up'; if (per[p.id].kind === 'drop') moved = 'down'; } return { id: p.id, name: p.name + (p.id === myId ? '（我）' : ''), seated: p.team === 'green', moved }; });
+      const list = players.value.map(p => { let moved = null; if (st === 'result' && per[p.id]) { if (per[p.id].kind === 'promote') moved = 'up'; if (per[p.id].kind === 'drop') moved = 'down'; } return { id: p.id, name: p.name + (p.id === myId ? '（我）' : ''), seated: p.team === 'green', moved, score: p.score || 0, isMe: p.id === myId }; }).sort((x, y) => y.score - x.score);
       return { seated: list.filter(x => x.seated), standing: list.filter(x => !x.seated) };
     });
+    const phaseLabel = computed(() => ({ question: '作答中', reveal: '開票中', result: '公布結果' })[meta.value && meta.value.status] || '');
     const summary = computed(() => {
       const c = { promote: 0, stayGreen: 0, drop: 0 };
       revealCards.value.forEach(x => { if (c[x.kind] !== undefined) c[x.kind]++; });
@@ -816,6 +827,7 @@ createApp({
     watch(() => meta.value ? meta.value.status + ':' + meta.value.round : '', (v, old) => {
       if (!meta.value || v === old) return;
       const st = meta.value.status;
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
       if (st === 'question') { sel.value = null; fill.value = ''; skipFlip.value = false; sfx('submit'); }
       if (st === 'reveal') { skipFlip.value = false; sfx('drum'); }
       if (st === 'result' && old && old.startsWith('reveal')) {
@@ -847,7 +859,7 @@ createApp({
     return { view, name, codeInput, code, room, meta, settings, aiCountSetting, players, humans, onlineHumans, me, myId, isHost, hostOnline,
       q, answersR, myAnswered, answeredCount, timeLeft, timePct, timeColor, result, pool, poolSize, aiPreview, custom, draft,
       revealCards, flippedCount, chartShown, barsGrown, bars, verdict, myResult, summary, ranked, winners, badgeOf,
-      sel, fill, toast, busy, sound, confetti, skipFlip, TYPE_LABEL, TYPE_COLOR, CATS, livingRoom, setupSteps, rulesText,
+      sel, fill, toast, busy, sound, confetti, skipFlip, TYPE_LABEL, TYPE_COLOR, CATS, livingRoom, phaseLabel, setupSteps, rulesText,
       createRoom, joinRoom, leave, shareRoom, copy, setSetting, toggleType, toggleCat, takeover, addCustom, removeCustom,
       pick, submit, startGame, forceReveal, applyResult, nextRound, backToLobby };
   }
