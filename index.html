@@ -59,6 +59,16 @@ tailwind.config = { theme: { extend: {
   @media (max-width:640px){ .pcard .inner{height:92px} }
   @keyframes fadein{from{opacity:0}to{opacity:1}}
   .fadein{animation:fadein .4s ease-out both}
+  .avs{display:flex;flex-wrap:wrap;gap:8px 9px;flex:1;min-width:0;padding:4px 4px 5px}
+  .av{position:relative;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;line-height:1;color:#0E1020;border:2px solid rgba(14,16,32,.3);flex:none;padding:0}
+  .av-sm{width:28px;height:28px;font-size:13px;cursor:default}
+  .av-xs{width:20px;height:20px;font-size:10px;border-width:1px;cursor:default}
+  .av-me{box-shadow:0 0 0 3px #FDFDFB}
+  .av-up{box-shadow:0 0 0 3px #FFE066}
+  .av-down{box-shadow:0 0 0 3px #FF8A2A}
+  .av-score{position:absolute;right:-7px;bottom:-6px;min-width:17px;height:17px;padding:0 3px;border-radius:9px;background:#0E1020;color:#fff;font-size:10px;line-height:17px;font-weight:900}
+  .av-tag{position:absolute;left:-6px;top:-7px;width:17px;height:17px;border-radius:50%;background:#FFE066;color:#0E1020;font-size:11px;line-height:17px;font-weight:900}
+  .av-down .av-tag{background:#FF8A2A}
   .confetti{position:fixed;top:0;height:14px;border-radius:2px;pointer-events:none;z-index:60;animation:fall linear both}
 </style>
 </head>
@@ -98,19 +108,19 @@ const firebaseConfig = {
     </div>
     </div>
     <div v-if="view==='room' && meta && meta.status!=='lobby' && meta.status!=='final'" class="max-w-5xl mx-auto mt-2 flex flex-col gap-1.5">
-      <div class="flex items-center gap-2 text-xs font-bold text-soft"><span>第 {{ meta.round+1 }} / {{ (meta.deck||[]).length }} 回合</span><span class="ml-auto px-2 py-0.5 rounded-full bg-card2 text-yel">{{ phaseLabel }}</span></div>
+      <div class="flex items-center gap-2 text-xs font-bold text-soft"><span>第 {{ meta.round+1 }} / {{ (meta.deck||[]).length }} 回合</span><span class="font-normal text-mute">點頭像看名字</span><span class="ml-auto px-2 py-0.5 rounded-full bg-card2 text-yel">{{ phaseLabel }}</span></div>
       <div class="sofa-mini">
-        <span class="flex items-center gap-1 text-xs font-black shrink-0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v3"/><path d="M2 16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H6v-2a2 2 0 0 0-4 0z"/><path d="M4 18v2M20 18v2"/></svg>沙發 {{ livingRoom.seated.length }}</span>
-        <div class="chips">
-          <span v-for="p in livingRoom.seated" :key="p.id" class="mchip bg-[#FDFDFB]" :class="[p.moved==='up' ? 'pop ring-2 ring-yel' : '', p.isMe ? 'outline outline-2 outline-ink' : '']">{{ p.name }} <span class="opacity-60">{{ p.score }}</span><b v-if="p.moved==='up'" class="text-gd"> ↑新坐下</b></span>
-          <span v-if="!livingRoom.seated.length" class="mchip opacity-70">還空著，快來搶位子！</span>
+        <span class="flex flex-col items-center text-[11px] font-black shrink-0 leading-tight w-8"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v3"/><path d="M2 16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H6v-2a2 2 0 0 0-4 0z"/><path d="M4 18v2M20 18v2"/></svg>沙發<span>{{ livingRoom.seated.length }}</span></span>
+        <div class="avs">
+          <button v-for="p in livingRoom.seated" :key="p.id" type="button" @click="showWho(p)" class="av" :class="[p.moved==='up' ? 'pop av-up' : '', p.isMe ? 'av-me' : '']" :style="{background: p.color}" :aria-label="p.fullName + '，' + p.score + ' 分'">{{ p.abbr }}<span class="av-score">{{ p.score }}</span><span v-if="p.moved==='up'" class="av-tag">↑</span></button>
+          <span v-if="!livingRoom.seated.length" class="text-xs font-bold opacity-70 py-2">還空著，快來搶位子！</span>
         </div>
       </div>
       <div class="stand-row">
-        <span class="flex items-center gap-1 text-xs font-black text-o shrink-0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v7"/><path d="M7.5 10h9"/><path d="M9.5 21l2.5-7 2.5 7"/></svg>站著 {{ livingRoom.standing.length }}</span>
-        <div class="chips">
-          <span v-for="p in livingRoom.standing" :key="p.id" class="mchip" :class="[p.moved==='down' ? 'pop bg-o text-ink' : 'bg-card2', p.isMe ? 'outline outline-2 outline-yel' : '']">{{ p.name }} <span class="opacity-60">{{ p.score }}</span><b v-if="p.moved==='down'"> ↓被擠下</b></span>
-          <span v-if="!livingRoom.standing.length" class="mchip text-mute">全家都坐下了！</span>
+        <span class="flex flex-col items-center text-[11px] font-black text-o shrink-0 leading-tight w-8 ml-2"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v7"/><path d="M7.5 10h9"/><path d="M9.5 21l2.5-7 2.5 7"/></svg>站著<span>{{ livingRoom.standing.length }}</span></span>
+        <div class="avs">
+          <button v-for="p in livingRoom.standing" :key="p.id" type="button" @click="showWho(p)" class="av" :class="[p.moved==='down' ? 'pop av-down' : '', p.isMe ? 'av-me' : '']" :style="{background: p.color}" :aria-label="p.fullName + '，' + p.score + ' 分'">{{ p.abbr }}<span class="av-score">{{ p.score }}</span><span v-if="p.moved==='down'" class="av-tag">↓</span></button>
+          <span v-if="!livingRoom.standing.length" class="text-xs text-mute py-2">全家都坐下了！</span>
         </div>
       </div>
     </div>
@@ -204,7 +214,7 @@ const firebaseConfig = {
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <div v-for="p in humans" :key="p.id" class="pop p-3 rounded-2xl bg-card2 flex items-center gap-2 min-w-0">
               <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="p.online ? 'bg-g' : 'bg-mute'" :aria-label="p.online ? '在線' : '離線'"></span>
-              <span class="font-bold truncate">{{ p.name }}</span>
+              <span class="av av-sm" :style="{background: avatarOf(p).color}" aria-hidden="true">{{ avatarOf(p).abbr }}</span><span class="font-bold truncate">{{ p.name }}</span>
               <span v-if="p.id===meta.hostId" class="ml-auto text-xs px-2 py-0.5 rounded-full bg-yel text-ink font-black shrink-0">主持</span>
             </div>
           </div>
@@ -345,7 +355,7 @@ const firebaseConfig = {
                 <span v-if="chartShown && c.inTop" class="pop mt-1 px-2 py-0.5 rounded-full bg-g text-ink text-[11px] font-black">多數派</span>
               </div>
             </div>
-            <strong class="text-sm text-center truncate" :class="c.id===myId ? 'text-yel' : ''">{{ c.name }}</strong>
+            <strong class="text-sm truncate flex items-center justify-center gap-1" :class="c.id===myId ? 'text-yel' : ''"><span class="av av-xs" :style="{background: avatarOf(c).color}" aria-hidden="true">{{ avatarOf(c).abbr }}</span><span class="truncate">{{ c.name }}</span></strong>
             <span v-if="meta.status==='result'" class="pop self-center px-2 py-0.5 rounded-full text-[11px] font-black" :style="{background: badgeOf(c.kind).bg, color: badgeOf(c.kind).fg}">{{ badgeOf(c.kind).short }}</span>
           </div>
         </div>
@@ -644,7 +654,7 @@ createApp({
     const myResult = computed(() => result.value && result.value.per ? result.value.per[myId] : null);
     const livingRoom = computed(() => {
       const st = meta.value && meta.value.status; const per = (result.value && result.value.per) || {};
-      const list = players.value.map(p => { let moved = null; if (st === 'result' && per[p.id]) { if (per[p.id].kind === 'promote') moved = 'up'; if (per[p.id].kind === 'drop') moved = 'down'; } return { id: p.id, name: p.name + (p.id === myId ? '（我）' : ''), seated: p.team === 'green', moved, score: p.score || 0, isMe: p.id === myId }; }).sort((x, y) => y.score - x.score);
+      const list = players.value.map(p => { let moved = null; if (st === 'result' && per[p.id]) { if (per[p.id].kind === 'promote') moved = 'up'; if (per[p.id].kind === 'drop') moved = 'down'; } return { id: p.id, name: p.name + (p.id === myId ? '（我）' : ''), seated: p.team === 'green', moved, score: p.score || 0, isMe: p.id === myId, fullName: p.name, abbr: abbrOf(p.name), color: avatarOf(p).color }; }).sort((x, y) => y.score - x.score);
       return { seated: list.filter(x => x.seated), standing: list.filter(x => !x.seated) };
     });
     const phaseLabel = computed(() => ({ question: '作答中', reveal: '開票中', result: '公布結果' })[meta.value && meta.value.status] || '');
@@ -658,6 +668,15 @@ createApp({
       return s.map((p, i) => { let k = i; while (k > 0 && (s[k - 1].score || 0) === (p.score || 0)) k--; return Object.assign({ rank: k + 1 }, p); });
     });
     const winners = computed(() => { const t = ranked.value[0] ? (ranked.value[0].score || 0) : 0; return ranked.value.filter(p => (p.score || 0) === t).map(p => p.name).join('、'); });
+    const PAL = ['#7FD4FF', '#FFE066', '#F59BD0', '#B79CFF', '#FDFDFB', '#6EE7D8', '#FF9BA6', '#A5B4FC', '#FFD3A8', '#9EE6FF', '#E9B8FF', '#D4D8E8', '#FFF1A8'];
+    function abbrOf(name) {
+      name = String(name || '').trim(); if (!name) return '?';
+      if (name === '理性博士') return '博';
+      if (/^[A-Za-z0-9 ._-]+$/.test(name)) return name.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '?';
+      const ch = [...name.replace(/\s+/g, '')]; return ch[ch.length - 1];
+    }
+    function avatarOf(p) { const i = players.value.findIndex(x => x.id === p.id); return { abbr: abbrOf(p.name), color: PAL[(i < 0 ? 0 : i) % PAL.length] }; }
+    function showWho(p) { say(p.fullName + '：' + (p.seated ? '坐沙發' : '站著') + ' · ' + p.score + ' 分'); }
     function badgeOf(kind) {
       return ({
         promote: { text: '搶到沙發 +1！', short: '搶到沙發 +1', bg: '#36E07A', fg: '#0E1020' },
@@ -862,7 +881,7 @@ createApp({
       q, answersR, myAnswered, answeredCount, timeLeft, timePct, timeColor, result, pool, poolSize, aiPreview, custom, draft,
       revealCards, flippedCount, chartShown, barsGrown, bars, verdict, myResult, summary, ranked, winners, badgeOf,
       sel, fill, toast, busy, sound, confetti, skipFlip, TYPE_LABEL, TYPE_COLOR, CATS, livingRoom, phaseLabel, setupSteps, rulesText,
-      createRoom, joinRoom, leave, shareRoom, copy, setSetting, toggleType, toggleCat, takeover, addCustom, removeCustom,
+      createRoom, joinRoom, leave, shareRoom, copy, setSetting, toggleType, toggleCat, takeover, avatarOf, showWho, addCustom, removeCustom,
       pick, submit, startGame, forceReveal, applyResult, nextRound, backToLobby };
   }
 }).mount('#app');
