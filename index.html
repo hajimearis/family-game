@@ -191,7 +191,13 @@ const firebaseConfig = {
           <div class="flex flex-col gap-2">
             <span class="text-soft font-bold text-sm">題型（可複選）</span>
             <div class="flex flex-wrap gap-2">
-              <button v-for="k in ['c2','c3','fill']" :key="k" @click="toggleType(k)" :aria-pressed="!!settings.types[k]" class="h-11 px-4 rounded-xl font-black" :class="settings.types[k] ? 'bg-g text-ink' : 'bg-card2'">{{ TYPE_LABEL[k] }}</button>
+              <button v-for="k in ['c2','c3']" :key="k" @click="toggleType(k)" :aria-pressed="!!settings.types[k]" class="h-11 px-4 rounded-xl font-black" :class="settings.types[k] ? 'bg-g text-ink' : 'bg-card2'">{{ TYPE_LABEL[k] }}</button>
+            </div>
+          </div>
+          <div class="flex flex-col gap-2">
+            <span class="text-soft font-bold text-sm">題目主題（可複選）</span>
+            <div class="flex flex-wrap gap-2">
+              <button v-for="c in CATS" :key="c[0]" @click="toggleCat(c[0])" :aria-pressed="settings.cats[c[0]]!==false" class="h-11 px-3 rounded-xl font-black text-sm" :class="settings.cats[c[0]]!==false ? 'bg-g text-ink' : 'bg-card2'">{{ c[1] }}</button>
             </div>
           </div>
           <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -210,7 +216,7 @@ const firebaseConfig = {
             <summary class="cursor-pointer font-black">家族專屬自訂題目（{{ custom.length }} 題）</summary>
             <div class="flex flex-col gap-3 mt-4">
               <div class="flex flex-wrap gap-2">
-                <button v-for="k in ['c2','c3','fill']" :key="k" @click="draft.t=k" :aria-pressed="draft.t===k" class="h-10 px-3 rounded-xl font-black text-sm" :class="draft.t===k ? 'bg-g text-ink' : 'bg-bg'">{{ TYPE_LABEL[k] }}</button>
+                <button v-for="k in ['c2','c3']" :key="k" @click="draft.t=k" :aria-pressed="draft.t===k" class="h-10 px-3 rounded-xl font-black text-sm" :class="draft.t===k ? 'bg-g text-ink' : 'bg-bg'">{{ TYPE_LABEL[k] }}</button>
               </div>
               <input v-model="draft.q" maxlength="60" placeholder="題目，例如：過年最期待哪道菜？" aria-label="題目" class="h-12 px-3 rounded-xl bg-bg border-2 border-line">
               <template v-if="draft.t!=='fill'">
@@ -238,7 +244,7 @@ const firebaseConfig = {
       <template v-if="meta.status==='question' && q">
         <div class="flex items-center justify-between gap-3 flex-wrap">
           <span class="px-3 py-1.5 rounded-full bg-card font-black text-sm">第 {{ meta.round+1 }} / {{ meta.deck.length }} 回合</span>
-          <span class="px-3 py-1.5 rounded-full text-ink font-black text-sm" :style="{background: TYPE_COLOR[q.t]}">{{ TYPE_LABEL[q.t] }}</span>
+          <span class="px-3 py-1.5 rounded-full text-ink font-black text-sm" :style="{background: TYPE_COLOR[q.t]}">{{ TYPE_LABEL[q.t] }}{{ q.cat ? '・' + q.cat : '' }}</span>
         </div>
         <div v-if="settings.timer>0" class="flex items-center gap-3">
           <div class="flex-1 h-3 rounded-full bg-card overflow-hidden"><div class="h-full transition-all duration-200" :style="{width: timePct+'%', background: timeColor}"></div></div>
@@ -283,7 +289,7 @@ const firebaseConfig = {
       <template v-if="(meta.status==='reveal' || meta.status==='result') && q && result">
         <div class="board px-4 py-4 flex items-center justify-between gap-3 flex-wrap">
           <h2 class="font-hand text-2xl leading-snug flex-1">{{ q.q }}</h2>
-          <span class="px-3 py-1 rounded-full text-ink font-black text-sm" :style="{background: TYPE_COLOR[q.t]}">{{ TYPE_LABEL[q.t] }}</span>
+          <span class="px-3 py-1 rounded-full text-ink font-black text-sm" :style="{background: TYPE_COLOR[q.t]}">{{ TYPE_LABEL[q.t] }}{{ q.cat ? '・' + q.cat : '' }}</span>
         </div>
 
         <div v-if="meta.status==='result' && myResult" class="pop p-4 rounded-2xl text-center font-black text-xl" :style="{background: badgeOf(myResult.kind).bg, color: badgeOf(myResult.kind).fg}">
@@ -333,6 +339,7 @@ const firebaseConfig = {
             <p v-else class="text-center text-soft">等主持人公布晉升結果……</p>
           </template>
           <template v-else>
+            <div v-if="q.talk" class="pop p-4 rounded-2xl bg-yel text-ink text-center"><span class="text-xs font-black opacity-70">揭曉後聊聊看</span><p class="text-lg font-black mt-1">{{ q.talk }}</p></div>
             <p class="text-center text-soft text-sm">{{ summary }}</p>
             <button v-if="isHost" @click="nextRound" class="h-14 rounded-2xl bg-o text-ink text-lg font-black shadow-[0_6px_0_#B85A10]">{{ meta.round+1 >= meta.deck.length ? '看最終排行榜' : '下一回合' }}</button>
             <p v-else class="text-center text-soft">等主持人進入下一回合……</p>
@@ -378,52 +385,11 @@ const firebaseConfig = {
   <span v-for="k in confetti" :key="k.id" class="confetti" aria-hidden="true" :style="{left: k.left, width: k.w, background: k.color, animationDuration: k.dur, animationDelay: k.delay}"></span>
 </div>
 
+<script src="questions.js?v=2"></script>
 <script>
-/* ================= 題庫 ================= */
-const TYPE_LABEL = { c2: '二選一', c3: '三選一', fill: '填空題' };
-const TYPE_COLOR = { c2: '#7FD4FF', c3: '#FFE066', fill: '#F59BD0' };
-function C(id, q, o, w) { return { id, t: o.length === 2 ? 'c2' : 'c3', q, o, w }; }
-function F(id, q, ans, al, sfx) {
-  return { id, t: 'fill', q, ans: ans.split(',').map(s => { const p = s.split(':'); return [p[0], +p[1] || 1]; }), al: al || {}, sfx: sfx || '' };
-}
-const BANK = [
-  C('a1', '珍珠奶茶的甜度，你會點？', ['全糖', '微糖'], [35, 65]),
-  C('a2', '早餐店首選：蛋餅還是飯糰？', ['蛋餅', '飯糰'], [62, 38]),
-  C('a3', '放假想去：海邊還是山上？', ['海邊', '山上'], [55, 45]),
-  C('a4', '你是狗派還是貓派？', ['狗派', '貓派'], [52, 48]),
-  C('a5', '端午節吃粽子：南部粽還是北部粽？', ['南部粽', '北部粽'], [50, 50]),
-  C('a6', '擠牙膏的習慣：從尾巴擠還是中間擠？', ['從尾巴擠', '從中間擠'], [68, 32]),
-  C('a7', '洗澡時先洗？', ['先洗頭', '先洗身體'], [64, 36]),
-  C('a8', '看電影一定要配？', ['爆米花', '吉拿棒'], [78, 22]),
-  C('a9', '鳳梨可以放在披薩上嗎？', ['可以', '不行'], [46, 54]),
-  C('a10', '早上起床靠什麼？', ['鬧鐘', '自然醒'], [80, 20]),
-  C('a11', '吃火鍋沾醬：沙茶醬還是不沾醬？', ['沙茶醬', '不沾醬'], [76, 24]),
-  C('a12', '過年守歲：熬到午夜還是早早睡？', ['熬到午夜', '早早睡'], [62, 38]),
-  C('b1', '最想擁有哪一種超能力？', ['瞬間移動', '隱形', '讀心術'], [45, 22, 33]),
-  C('b2', '走進便利商店最常買？', ['飲料', '茶葉蛋', '御飯糰'], [52, 18, 30]),
-  C('b3', '最喜歡的季節？', ['春天', '秋天', '冬天'], [26, 44, 30]),
-  C('b4', '家族旅遊最想去？', ['溫泉', '海邊', '遊樂園'], [45, 25, 30]),
-  C('b5', '早餐飲料首選？', ['奶茶', '豆漿', '咖啡'], [45, 32, 23]),
-  C('b6', '年夜飯最期待？', ['佛跳牆', '烏魚子', '長年菜'], [42, 38, 20]),
-  C('b7', '第一次出國最想去？', ['日本', '韓國', '歐洲'], [55, 18, 27]),
-  C('b8', '逛夜市必吃？', ['雞排', '臭豆腐', '蚵仔煎'], [44, 26, 30]),
-  C('b9', '放假第一天最想做？', ['睡到自然醒', '出門玩', '追劇'], [50, 30, 20]),
-  C('b10', '三選一，你最怕哪個？', ['蟑螂', '鬼', '打針'], [60, 26, 14]),
-  C('b11', '手機只剩 1% 電，第一件事？', ['找插座', '關機省電', '繼續滑'], [55, 13, 32]),
-  C('b12', '家族聚餐最常聊的話題？', ['小孩課業', '誰要結婚', '健康養生'], [35, 30, 35]),
-  F('c1', '說出一種水果：＿＿＿', '香蕉:30,蘋果:25,芒果:15,西瓜:15,芭樂:10,鳳梨:5', { '芭樂': ['番石榴'] }),
-  F('c2', '最能代表台灣的小吃是：＿＿＿', '滷肉飯:35,小籠包:20,牛肉麵:20,臭豆腐:15,雞排:10', { '滷肉飯': ['魯肉飯', '肉燥飯'], '小籠包': ['湯包'], '雞排': ['炸雞排'] }),
-  F('c3', '說出一種顏色：＿＿＿', '紅色:35,藍色:30,黑色:15,綠色:10,白色:10', {}, '色'),
-  F('c4', '一提到「夏天」，你會想到：＿＿＿', '西瓜:25,海邊:25,冰淇淋:20,冷氣:20,蟬:10', { '冰淇淋': ['霜淇淋', '冰棒'], '海邊': ['海', '海灘', '沙灘'], '冷氣': ['吹冷氣'], '蟬': ['蟬叫', '知了'] }),
-  F('c5', '最常見的寵物是：＿＿＿', '狗:45,貓:40,兔子:8,倉鼠:7', { '狗': ['狗狗', '小狗', '犬'], '貓': ['貓咪', '小貓'], '兔子': ['兔', '小兔'], '倉鼠': ['黃金鼠'] }),
-  F('c6', '說出一種「用球」的運動：＿＿＿', '籃球:40,足球:20,棒球:20,排球:10,桌球:10', { '桌球': ['乒乓球'], '棒球': ['壘球'] }),
-  F('c7', '早餐店最經典的餐點：＿＿＿', '蛋餅:45,漢堡:20,吐司:20,蘿蔔糕:15', { '蛋餅': ['起司蛋餅', '玉米蛋餅'], '漢堡': ['豬肉漢堡', '雞腿堡'], '吐司': ['土司', '三明治'] }),
-  F('c8', '從 1 到 10 選一個數字：＿＿＿', '7:35,3:20,5:15,8:15,1:15', { '7': ['七'], '3': ['三'], '5': ['五'], '8': ['八'], '1': ['一'] }),
-  F('c9', '一週裡最喜歡星期幾？＿＿＿', '星期五:40,星期六:30,星期日:20,星期三:10', { '星期五': ['週五', '周五', '禮拜五', '五'], '星期六': ['週六', '周六', '禮拜六', '六'], '星期日': ['週日', '周日', '禮拜天', '星期天', '禮拜日', '日'], '星期三': ['週三', '周三', '禮拜三', '三'] }),
-  F('c10', '過年最常收到的東西：＿＿＿', '紅包:60,水果禮盒:15,零食:15,茶葉:10', { '紅包': ['壓歲錢', '錢'], '水果禮盒': ['水果'], '零食': ['餅乾', '糖果'] }),
-  F('c11', '說出一個台灣的縣市：＿＿＿', '台北:40,台南:20,高雄:20,台中:20', { '台北': ['台北市', '北市'], '台南': ['台南市'], '高雄': ['高雄市'], '台中': ['台中市'] }),
-  F('c12', '家裡遙控器最常被誰拿走？＿＿＿', '爸爸:40,阿公:25,媽媽:20,小孩:15', { '爸爸': ['爸', '老爸', '把拔'], '媽媽': ['媽', '老媽', '馬麻'], '阿公': ['爺爺', '外公'], '小孩': ['弟弟', '妹妹', '孩子'] })
-];
+/* ================= 題庫：見 questions.js ================= */
+const TYPE_LABEL = { c2: '是非題', c3: '三選一' };
+const TYPE_COLOR = { c2: '#7FD4FF', c3: '#FFE066' };
 const AIS = [
   { name: '跟風小美', tag: '從眾型', temp: 0.45 },
   { name: '直覺阿豪', tag: '直覺型', temp: 1 },
@@ -578,7 +544,7 @@ createApp({
     const meta = computed(() => room.value && room.value.meta ? room.value.meta : null);
     const settings = computed(() => {
       const s = (meta.value && meta.value.settings) || {};
-      return { rounds: s.rounds || 10, timer: s.timer == null ? 30 : s.timer, types: s.types || { c2: true, c3: true, fill: true }, aiCount: s.aiCount || 0 };
+      return { rounds: s.rounds || 10, timer: s.timer == null ? 30 : s.timer, types: s.types || { c2: true, c3: true }, cats: s.cats || {}, aiCount: s.aiCount || 0 };
     });
     const aiCountSetting = computed(() => settings.value.aiCount);
     const players = computed(() => Object.entries((room.value && room.value.players) || {})
@@ -597,7 +563,7 @@ createApp({
     const timePct = computed(() => settings.value.timer > 0 ? Math.min(100, timeLeft.value / settings.value.timer * 100) : 0);
     const timeColor = computed(() => timeLeft.value <= 5 ? '#FF8A2A' : timeLeft.value <= 10 ? '#FFE066' : '#36E07A');
     const result = computed(() => room.value && room.value.result ? room.value.result : null);
-    const pool = computed(() => BANK.concat(custom.value).filter(x => settings.value.types[x.t]));
+    const pool = computed(() => BANK.concat(custom.value).filter(x => x.t !== 'fill' && settings.value.types[x.t] && (!x.cat || settings.value.cats[x.cat] !== false)));
     const poolSize = computed(() => pool.value.length);
     const aiPreview = computed(() => aiCountSetting.value ? AIS.slice(0, aiCountSetting.value).map(a => a.name + '（' + a.tag + '）').join('、') : '不加入 AI');
 
@@ -667,7 +633,7 @@ createApp({
       try {
         for (let i = 0; i < 12; i++) {
           const c = String(Math.floor(1000 + Math.random() * 9000));
-          const res = await db.ref('rooms/' + c + '/meta').transaction(cur => cur === null ? { hostId: myId, status: 'lobby', round: 0, createdAt: Date.now(), settings: { rounds: 10, timer: 30, types: { c2: true, c3: true, fill: true }, aiCount: 0 } } : undefined);
+          const res = await db.ref('rooms/' + c + '/meta').transaction(cur => cur === null ? { hostId: myId, status: 'lobby', round: 0, createdAt: Date.now(), settings: { rounds: 10, timer: 30, types: { c2: true, c3: true }, aiCount: 0 } } : undefined);
           if (res.committed) { await joinRoom(c, true); return; }
         }
         say('建立房間失敗，請再試一次');
@@ -718,6 +684,7 @@ createApp({
     function copy(t) { (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => say('已複製'), () => say('請手動複製')); }
     function setSetting(k, v) { rp('meta/settings/' + k).set(v); }
     function toggleType(k) { rp('meta/settings/types/' + k).set(!settings.value.types[k]); }
+    function toggleCat(k) { rp('meta/settings/cats/' + k).set(settings.value.cats[k] === false); }
     function takeover() { rp('meta/hostId').set(myId); say('你現在是主持人'); }
 
     function addCustom() {
@@ -850,8 +817,8 @@ createApp({
     return { view, name, codeInput, code, room, meta, settings, aiCountSetting, players, humans, onlineHumans, me, myId, isHost, hostOnline,
       q, answersR, myAnswered, answeredCount, timeLeft, timePct, timeColor, result, pool, poolSize, aiPreview, custom, draft,
       revealCards, flippedCount, chartShown, barsGrown, bars, verdict, myResult, summary, ranked, winners, badgeOf,
-      sel, fill, toast, busy, sound, confetti, skipFlip, TYPE_LABEL, TYPE_COLOR, setupSteps, rulesText,
-      createRoom, joinRoom, leave, shareRoom, copy, setSetting, toggleType, takeover, addCustom, removeCustom,
+      sel, fill, toast, busy, sound, confetti, skipFlip, TYPE_LABEL, TYPE_COLOR, CATS, setupSteps, rulesText,
+      createRoom, joinRoom, leave, shareRoom, copy, setSetting, toggleType, toggleCat, takeover, addCustom, removeCustom,
       pick, submit, startGame, forceReveal, applyResult, nextRound, backToLobby };
   }
 }).mount('#app');
