@@ -43,6 +43,10 @@ tailwind.config = { theme: { extend: {
   .pcard .face{position:absolute;inset:0;border-radius:16px;backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;text-align:center}
   .pcard .front{transform:rotateY(180deg);background:#FDFDFB;color:#1B1F3B;box-shadow:inset 0 0 0 3px #D9DCE8}
   .bar{transition:height .9s cubic-bezier(.2,.8,.2,1)}
+  .sofa{position:relative;background:#36E07A;border-radius:22px 22px 12px 12px;padding:16px 18px 14px;border-left:14px solid #2BC468;border-right:14px solid #2BC468;box-shadow:inset 0 12px 0 #2BC468, 0 8px 0 #1E9A52;margin-bottom:12px}
+  .sofa:before,.sofa:after{content:"";position:absolute;bottom:-20px;width:10px;height:12px;background:#1E9A52;border-radius:0 0 4px 4px}
+  .sofa:before{left:10px}.sofa:after{right:10px}
+  .seat{background:#FDFDFB;color:#0E1020;border-radius:12px;padding:6px 10px;font-size:14px;font-weight:700;box-shadow:0 3px 0 #1E9A52}
   .confetti{position:fixed;top:0;height:14px;border-radius:2px;pointer-events:none;z-index:60;animation:fall linear both}
 </style>
 </head>
@@ -72,7 +76,7 @@ const firebaseConfig = {
       <span class="font-disp text-xs hidden sm:inline"><span class="text-g">GREEN</span> <span class="text-o">TEAM WINS</span></span>
     </div>
     <div class="flex items-center gap-2">
-      <span v-if="view==='room' && me" class="px-3 py-1.5 rounded-full text-ink text-sm font-black" :class="me.team==='green' ? 'bg-g' : 'bg-o'">{{ me.team==='green' ? '綠隊' : '橘隊' }} · {{ me.score || 0 }} 分</span>
+      <span v-if="view==='room' && me" class="px-3 py-1.5 rounded-full text-ink text-sm font-black" :class="me.team==='green' ? 'bg-g' : 'bg-o'">{{ me.team==='green' ? '坐沙發' : '站著' }} · {{ me.score || 0 }} 分</span>
       <button @click="sound=!sound" :aria-label="sound ? '關閉音效' : '開啟音效'" class="h-11 w-11 rounded-full border-2 border-line flex items-center justify-center">
         <svg v-if="sound" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
         <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
@@ -107,8 +111,8 @@ const firebaseConfig = {
   <main v-if="view==='home'" class="max-w-xl w-full mx-auto px-4 py-8 flex flex-col gap-7">
     <section class="flex flex-col items-center text-center gap-3">
       <div class="relative w-52 h-40 my-2">
-        <div class="wobble absolute left-2 top-4 w-28 h-36 rounded-2xl bg-o text-ink flex flex-col items-center justify-center shadow-[0_8px_0_#B85A10]"><span class="font-disp text-5xl">?</span><span class="font-black text-sm">橘隊</span></div>
-        <div class="board pop absolute right-0 top-0 w-28 h-36 flex flex-col items-center justify-center gap-1 rotate-6"><span class="text-xs text-[#6A6F93] font-bold">我的答案</span><span class="font-hand text-3xl font-bold">微糖</span><span class="px-2 py-0.5 rounded-full bg-g text-ink text-xs font-black">+1</span></div>
+        <div class="wobble absolute left-2 top-4 w-28 h-36 rounded-2xl bg-o text-ink flex flex-col items-center justify-center shadow-[0_8px_0_#B85A10]"><span class="font-disp text-5xl">?</span><span class="font-black text-sm">站著</span></div>
+        <div class="board pop absolute right-0 top-0 w-28 h-36 flex flex-col items-center justify-center gap-1 rotate-6"><span class="text-xs text-[#6A6F93] font-bold">我的答案</span><span class="font-hand text-3xl font-bold">微糖</span><span class="px-2 py-0.5 rounded-full bg-g text-ink text-xs font-black">搶到沙發 +1</span></div>
       </div>
       <h1 class="text-6xl font-black tracking-widest">多數派</h1>
       <p class="font-disp text-2xl"><span class="text-g">GREEN TEAM</span> <span class="text-o">WINS!</span></p>
@@ -129,16 +133,17 @@ const firebaseConfig = {
 
     <section class="flex flex-col gap-3">
       <h2 class="text-xl font-black">計分規則</h2>
+      <p class="text-soft text-sm leading-relaxed">把它想成家裡的客廳：大家一開始都站著。猜中「大多數人的答案」就能搶到沙發坐下；已經坐著的人再猜中，就坐得更穩、分數更多；猜錯了會被擠下沙發，只能站著。</p>
       <div class="overflow-x-auto rounded-2xl bg-card">
         <table class="w-full min-w-[420px] text-sm">
           <thead class="text-soft text-left"><tr><th class="p-3">你目前在</th><th class="p-3">選中多數派</th><th class="p-3">沒選中</th></tr></thead>
           <tbody>
-            <tr class="border-t-2 border-card2"><td class="p-3"><span class="px-2 py-1 rounded-full bg-o text-ink font-black">橘隊</span></td><td class="p-3 text-g font-bold">晉升綠隊 +1</td><td class="p-3">維持橘隊 +0</td></tr>
-            <tr class="border-t-2 border-card2"><td class="p-3"><span class="px-2 py-1 rounded-full bg-g text-ink font-black">綠隊</span></td><td class="p-3 text-g font-bold">留在綠隊 +2</td><td class="p-3 text-o font-bold">跌回橘隊 +0</td></tr>
+            <tr class="border-t-2 border-card2"><td class="p-3"><span class="px-2 py-1 rounded-full bg-o text-ink font-black">站著</span></td><td class="p-3 text-g font-bold">搶到沙發 +1</td><td class="p-3">繼續站著 +0</td></tr>
+            <tr class="border-t-2 border-card2"><td class="p-3"><span class="px-2 py-1 rounded-full bg-g text-ink font-black">坐沙發</span></td><td class="p-3 text-g font-bold">坐穩沙發 +2</td><td class="p-3 text-o font-bold">被擠下沙發 +0</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="text-soft text-sm leading-relaxed">最高票平手時：綠隊有選到平手答案的人留在綠隊 +2，沒選到的跌回橘隊；橘隊這回合無法晉升。</p>
+      <p class="text-soft text-sm leading-relaxed">最高票平手時：坐在沙發上、又選到平手答案的人坐穩 +2，沒選到的被擠下沙發；站著的人這回合搶不到位子。</p>
     </section>
   </main>
 
@@ -151,6 +156,25 @@ const firebaseConfig = {
         <span class="font-bold">主持人好像斷線了。</span>
         <button @click="takeover" class="h-11 px-4 rounded-xl bg-ink text-white font-black">由我接手主持</button>
       </div>
+
+      <!-- ---------- 客廳現況 ---------- -->
+      <section v-if="meta.status==='question' || meta.status==='result'" class="rise p-4 rounded-3xl bg-card flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <h3 class="font-black flex items-center gap-1.5 text-g"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v3"/><path d="M2 16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H6v-2a2 2 0 0 0-4 0z"/><path d="M4 18v2M20 18v2"/></svg>客廳沙發</h3>
+          <span class="text-xs text-mute">猜中多數派才能坐沙發</span>
+        </div>
+        <div class="sofa">
+          <div class="flex flex-wrap gap-2 justify-center items-center min-h-[38px]">
+            <span v-for="p in livingRoom.seated" :key="p.id" class="seat" :class="p.moved==='up' ? 'pop ring-4 ring-yel' : ''">{{ p.name }}<b v-if="p.moved==='up'" class="text-[11px] text-gd ml-1">新坐下</b></span>
+            <span v-if="!livingRoom.seated.length" class="text-ink text-sm font-bold opacity-70">沙發還空著，快來搶第一個位子！</span>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-o text-sm font-black flex items-center gap-1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="4.5" r="2"/><path d="M12 7v7"/><path d="M7.5 10h9"/><path d="M9.5 21l2.5-7 2.5 7"/></svg>站著</span>
+          <span v-for="p in livingRoom.standing" :key="p.id" class="px-2.5 py-1 rounded-full text-sm font-bold" :class="p.moved==='down' ? 'pop bg-o text-ink' : 'bg-card2'">{{ p.name }}<b v-if="p.moved==='down'" class="text-[11px] ml-1">被擠下</b></span>
+          <span v-if="!livingRoom.standing.length" class="text-mute text-sm">沒有人站著，全家都坐下了！</span>
+        </div>
+      </section>
 
       <!-- ---------- 等待室 ---------- -->
       <template v-if="meta.status==='lobby'">
@@ -273,6 +297,7 @@ const firebaseConfig = {
         <div v-else class="pop p-6 rounded-3xl bg-card flex flex-col items-center gap-2 text-center">
           <div class="w-20 h-24 rounded-xl flex items-center justify-center font-disp text-4xl text-ink shadow-[0_6px_0_rgba(0,0,0,.3)]" :class="me && me.team==='green' ? 'bg-g' : 'bg-o'">?</div>
           <strong class="text-lg">已蓋牌！</strong>
+          <span class="text-sm font-bold" :class="me && me.team==='green' ? 'text-g' : 'text-o'">你現在{{ me && me.team==='green' ? '坐在沙發上' : '站著' }}</span>
           <span class="text-soft text-sm">等其他家人作答……</span>
         </div>
 
@@ -301,7 +326,7 @@ const firebaseConfig = {
             <div class="inner">
               <div class="face text-ink" :style="{background: c.before==='green' ? '#36E07A' : '#FF8A2A', boxShadow: '0 5px 0 ' + (c.before==='green' ? '#1E9A52' : '#B85A10')}">
                 <span class="font-disp text-4xl leading-none">?</span>
-                <span class="text-xs font-black mt-1">{{ c.before==='green' ? '綠隊' : '橘隊' }}</span>
+                <span class="text-xs font-black mt-1">{{ c.before==='green' ? '坐沙發' : '站著' }}</span>
               </div>
               <div class="face front">
                 <span class="font-hand text-xl font-bold leading-tight break-all">{{ c.shown }}</span>
@@ -359,7 +384,7 @@ const firebaseConfig = {
         <div class="flex flex-col gap-2">
           <div v-for="p in ranked" :key="p.id" class="rise flex items-center gap-3 p-4 rounded-2xl" :class="p.score===ranked[0].score ? 'bg-g text-ink' : 'bg-card'">
             <span class="font-disp text-2xl w-8 text-center">{{ p.rank }}</span>
-            <div class="flex-1 min-w-0"><strong class="block truncate">{{ p.name }}{{ p.isAI ? '（AI）' : '' }}</strong><span class="text-xs opacity-80">待在綠隊 {{ p.greenRounds || 0 }} 回合</span></div>
+            <div class="flex-1 min-w-0"><strong class="block truncate">{{ p.name }}{{ p.isAI ? '（AI）' : '' }}</strong><span class="text-xs opacity-80">坐沙發 {{ p.greenRounds || 0 }} 回合</span></div>
             <span class="font-disp text-3xl">{{ p.score || 0 }}</span>
           </div>
         </div>
@@ -374,7 +399,7 @@ const firebaseConfig = {
       <div v-for="p in ranked" :key="p.id" class="flex items-center gap-2 p-2.5 rounded-xl bg-card2" :class="p.id===myId ? 'ring-2 ring-yel' : ''">
         <span class="w-6 text-center font-black text-mute">{{ p.rank }}</span>
         <span class="w-3 h-3 rounded-full shrink-0" :class="p.team==='green' ? 'bg-g' : 'bg-o'" aria-hidden="true"></span>
-        <span class="flex-1 min-w-0 truncate font-bold text-sm">{{ p.name }}<span v-if="p.isAI" class="text-mute text-xs"> AI</span><span v-if="!p.isAI && !p.online" class="text-mute text-xs"> 離線</span></span>
+        <span class="flex-1 min-w-0 truncate font-bold text-sm">{{ p.name }}<span v-if="p.isAI" class="text-mute text-xs"> AI</span><span class="text-xs" :class="p.team==='green' ? 'text-g' : 'text-o'"> {{ p.team==='green' ? '坐沙發' : '站著' }}</span><span v-if="!p.isAI && !p.online" class="text-mute text-xs"> 離線</span></span>
         <span class="font-disp text-xl" :class="p.team==='green' ? 'text-g' : 'text-o'">{{ p.score || 0 }}</span>
       </div>
     </aside>
@@ -605,10 +630,15 @@ createApp({
       return r.tie ? { text: '最高票平手：' + labels.join(''), bg: '#FFE066' } : { text: '多數派：' + labels[0], bg: '#36E07A' };
     });
     const myResult = computed(() => result.value && result.value.per ? result.value.per[myId] : null);
+    const livingRoom = computed(() => {
+      const st = meta.value && meta.value.status; const per = (result.value && result.value.per) || {};
+      const list = players.value.map(p => { let moved = null; if (st === 'result' && per[p.id]) { if (per[p.id].kind === 'promote') moved = 'up'; if (per[p.id].kind === 'drop') moved = 'down'; } return { id: p.id, name: p.name + (p.id === myId ? '（我）' : ''), seated: p.team === 'green', moved }; });
+      return { seated: list.filter(x => x.seated), standing: list.filter(x => !x.seated) };
+    });
     const summary = computed(() => {
       const c = { promote: 0, stayGreen: 0, drop: 0 };
       revealCards.value.forEach(x => { if (c[x.kind] !== undefined) c[x.kind]++; });
-      return '本回合：' + c.promote + ' 人晉升綠隊、' + c.stayGreen + ' 人留在綠隊、' + c.drop + ' 人跌回橘隊' + (result.value && result.value.tie ? '（平手回合，橘隊無法晉升）' : '');
+      return '本回合：' + c.promote + ' 人搶到沙發、' + c.stayGreen + ' 人坐穩沙發、' + c.drop + ' 人被擠下沙發' + (result.value && result.value.tie ? '（平手回合，站著的人搶不到位子）' : '');
     });
     const ranked = computed(() => {
       const s = players.value.slice().sort((a, b) => (b.score || 0) - (a.score || 0) || (b.greenRounds || 0) - (a.greenRounds || 0));
@@ -617,11 +647,11 @@ createApp({
     const winners = computed(() => { const t = ranked.value[0] ? (ranked.value[0].score || 0) : 0; return ranked.value.filter(p => (p.score || 0) === t).map(p => p.name).join('、'); });
     function badgeOf(kind) {
       return ({
-        promote: { text: '晉升綠隊 +1！', short: '晉升 +1', bg: '#36E07A', fg: '#0E1020' },
-        stayGreen: { text: '留在綠隊 +2！', short: '留綠 +2', bg: '#36E07A', fg: '#0E1020' },
-        drop: { text: '跌回橘隊……', short: '跌回橘隊', bg: '#FF8A2A', fg: '#0E1020' },
-        tieNoPromote: { text: '平手，這回合無法晉升', short: '平手不晉升', bg: '#FFE066', fg: '#0E1020' },
-        stayOrange: { text: '維持橘隊 +0', short: '橘隊 +0', bg: '#3A3F66', fg: '#F3F4FA' }
+        promote: { text: '搶到沙發 +1！', short: '搶到沙發 +1', bg: '#36E07A', fg: '#0E1020' },
+        stayGreen: { text: '坐穩沙發 +2！', short: '坐穩 +2', bg: '#36E07A', fg: '#0E1020' },
+        drop: { text: '被擠下沙發了……', short: '被擠下沙發', bg: '#FF8A2A', fg: '#0E1020' },
+        tieNoPromote: { text: '平手，這回合搶不到位子', short: '平手沒位子', bg: '#FFE066', fg: '#0E1020' },
+        stayOrange: { text: '繼續站著 +0', short: '繼續站著', bg: '#3A3F66', fg: '#F3F4FA' }
       })[kind] || { text: '', short: '', bg: '#3A3F66', fg: '#F3F4FA' };
     }
 
@@ -817,7 +847,7 @@ createApp({
     return { view, name, codeInput, code, room, meta, settings, aiCountSetting, players, humans, onlineHumans, me, myId, isHost, hostOnline,
       q, answersR, myAnswered, answeredCount, timeLeft, timePct, timeColor, result, pool, poolSize, aiPreview, custom, draft,
       revealCards, flippedCount, chartShown, barsGrown, bars, verdict, myResult, summary, ranked, winners, badgeOf,
-      sel, fill, toast, busy, sound, confetti, skipFlip, TYPE_LABEL, TYPE_COLOR, CATS, setupSteps, rulesText,
+      sel, fill, toast, busy, sound, confetti, skipFlip, TYPE_LABEL, TYPE_COLOR, CATS, livingRoom, setupSteps, rulesText,
       createRoom, joinRoom, leave, shareRoom, copy, setSetting, toggleType, toggleCat, takeover, addCustom, removeCustom,
       pick, submit, startGame, forceReveal, applyResult, nextRound, backToLobby };
   }
